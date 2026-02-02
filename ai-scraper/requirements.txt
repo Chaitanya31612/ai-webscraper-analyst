@@ -1,0 +1,8 @@
+crawl4ai
+playwright
+httpx
+beautifulsoup4
+python-dotenv
+groq
+pandas
+openpyxl
