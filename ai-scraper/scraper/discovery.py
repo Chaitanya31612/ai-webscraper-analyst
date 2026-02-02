@@ -1,5 +1,6 @@
 from typing import Optional
 from .core import Scraper, ScrapeResult
+from .cleaner import clean_markdown, estimate_tokens
 
 TARGET_PAGES = {
     "about": ["/about", "/about-us", "/company", "/who-we-are", "/our-story"],
@@ -8,16 +9,21 @@ TARGET_PAGES = {
 }
 
 # Token limit settings (~4 chars = 1 token)
-MAX_CHARS_PER_PAGE = 6000   # ~1,500 tokens per page
-MAX_TOTAL_CHARS = 20000     # ~5,000 tokens total, leaves room for prompts
+MAX_CHARS_PER_PAGE = 8000   # ~2,000 tokens per page (increased since we clean first)
+MAX_TOTAL_CHARS = 24000     # ~6,000 tokens total, leaves room for prompts
 
 
-def truncate_content(text: str, max_chars: int = MAX_CHARS_PER_PAGE) -> str:
-    """Truncate content to stay within token limits."""
-    if len(text) <= max_chars:
-        return text
-    # Keep beginning (usually most important) + add truncation notice
-    return text[:max_chars] + "\n\n[...content truncated...]"
+def process_content(text: str, max_chars: int = MAX_CHARS_PER_PAGE) -> str:
+    """Clean and truncate content to stay within token limits."""
+    # First clean to remove noise (can reduce size significantly)
+    cleaned = clean_markdown(text)
+    print(f"Cleaned content size: {len(cleaned)}")
+    print(f"Cleaned content tokens: {estimate_tokens(cleaned)}")
+
+    # Then truncate if still too long
+    if len(cleaned) <= max_chars:
+        return cleaned
+    return cleaned[:max_chars] + "\n\n[...content truncated...]"
 
 
 async def discover_key_pages(
@@ -67,7 +73,7 @@ async def scrape_company(website: str, scraper: Optional[Scraper] = None) -> dic
 
     if homepage.success:
         # Truncate homepage content
-        truncated_homepage = truncate_content(homepage.markdown)
+        truncated_homepage = process_content(homepage.markdown)
         all_content.append(f"# Homepage\n\n{truncated_homepage}")
         pages_crawled.append(website)
         total_chars += len(truncated_homepage)
@@ -85,7 +91,7 @@ async def scrape_company(website: str, scraper: Optional[Scraper] = None) -> dic
                 # Calculate remaining space
                 remaining = MAX_TOTAL_CHARS - total_chars
                 page_limit = min(MAX_CHARS_PER_PAGE, remaining)
-                truncated = truncate_content(result.markdown, page_limit)
+                truncated = process_content(result.markdown, page_limit)
 
                 all_content.append(f"# {page_type.title()} Page\n\n{truncated}")
                 pages_crawled.append(url)
