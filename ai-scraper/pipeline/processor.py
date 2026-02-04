@@ -1,6 +1,7 @@
 import json
 from typing import Optional
-from scraper.ai import AIAnalyzer
+from scraper.ai.base import AIAnalyzerInterface, AIProvider
+from scraper.ai.factory import AIAnalyzerFactory
 from .criteria import AcceptRejectCriteria
 
 
@@ -68,7 +69,7 @@ def parse_json_response(content: str) -> Optional[dict]:
 async def analyze_company(
         content: str,
         criteria: AcceptRejectCriteria,
-        ai: Optional[AIAnalyzer] = None
+        ai: Optional[AIAnalyzerInterface] = None
 ) -> tuple[Optional[dict], dict]:
     """
     Two-stage AI analysis:
@@ -77,7 +78,7 @@ async def analyze_company(
     Returns: (profile_dict, decision_dict)
     """
     if ai is None:
-        ai = AIAnalyzer(model="smart")
+        ai = AIAnalyzerFactory.create(AIProvider.GROQ, model="smart")
 
     # Stage 1: Extract profile
     profile_result = ai.analyze(content, EXTRACTION_PROMPT)

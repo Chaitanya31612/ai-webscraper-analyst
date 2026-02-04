@@ -2,7 +2,9 @@ import asyncio
 from datetime import datetime
 
 from models import CompanyInput, ProcessedCompany
-from scraper import Scraper, AIAnalyzer, scrape_company
+from scraper import Scraper, scrape_company
+from scraper.ai.base import AIAnalyzerInterface, AIProvider
+from scraper.ai.factory import AIAnalyzerFactory
 from pipeline import (
     AcceptRejectCriteria,
     analyze_company,
@@ -16,7 +18,7 @@ from pipeline import (
 async def process_company(
         company: CompanyInput,
         scraper: Scraper,
-        ai: AIAnalyzer,
+        ai: AIAnalyzerInterface,
         criteria: AcceptRejectCriteria
 ) -> ProcessedCompany:
     """Process a single company: scrape → analyze → decide."""
@@ -74,7 +76,9 @@ async def main(
 
     # 2. Initialize
     scraper = Scraper(headless=True)
-    ai = AIAnalyzer(model="smart")
+    ai = AIAnalyzerFactory.create(AIProvider.GROQ)
+    # ai = AIAnalyzerFactory.create(AIProvider.GEMINI)
+    # ai = AIAnalyzerFactory.create(AIProvider.OLLAMA)
     criteria = AcceptRejectCriteria(
         accept_industries=["Technology", "Healthcare", "Software", "Financial Services"],
         accept_product_keywords=["SaaS", "platform", "cloud", "API", "analytics"],
