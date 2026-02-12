@@ -2,3 +2,5 @@
 __pycache__/
 venv/
 .env
+development.md
+cursor_ai_web_scraper_implementation_an.md
