@@ -57,9 +57,9 @@ onUnmounted(() => {
 
       <!-- Desktop nav -->
       <nav class="header__nav" id="header-nav">
-        <RouterLink to="/1/about" class="header__link">About</RouterLink>
-        <RouterLink to="/1/pricing" class="header__link">Pricing</RouterLink>
-        <RouterLink to="/1/features" class="header__link">Features</RouterLink>
+        <RouterLink to="/about" class="header__link">About</RouterLink>
+        <RouterLink to="/pricing" class="header__link">Pricing</RouterLink>
+        <RouterLink to="/features" class="header__link">Features</RouterLink>
 
         <!-- Company dropdown -->
         <div class="header__dropdown" @click.stop>
@@ -75,21 +75,21 @@ onUnmounted(() => {
           </button>
           <Transition name="dropdown">
             <div v-if="companyOpen" class="header__dropdown-menu" id="company-dropdown-menu">
-              <RouterLink to="/1/team" class="header__dropdown-item">
+              <RouterLink to="/team" class="header__dropdown-item">
                 <span class="header__dropdown-icon">👥</span>
                 <div>
                   <div class="header__dropdown-title">Team</div>
                   <div class="header__dropdown-desc">Meet the people behind AI Scraper</div>
                 </div>
               </RouterLink>
-              <RouterLink to="/1/careers" class="header__dropdown-item">
+              <RouterLink to="/careers" class="header__dropdown-item">
                 <span class="header__dropdown-icon">🚀</span>
                 <div>
                   <div class="header__dropdown-title">Careers</div>
                   <div class="header__dropdown-desc">Join our growing team</div>
                 </div>
               </RouterLink>
-              <RouterLink to="/1/contact" class="header__dropdown-item">
+              <RouterLink to="/contact" class="header__dropdown-item">
                 <span class="header__dropdown-icon">✉️</span>
                 <div>
                   <div class="header__dropdown-title">Contact</div>
@@ -135,13 +135,13 @@ onUnmounted(() => {
     <!-- Mobile menu -->
     <Transition name="mobile-menu">
       <div v-if="mobileOpen" class="header__mobile-menu" id="mobile-menu">
-        <RouterLink to="/1/about" class="header__mobile-link" @click="mobileOpen = false">About</RouterLink>
-        <RouterLink to="/1/pricing" class="header__mobile-link" @click="mobileOpen = false">Pricing</RouterLink>
-        <RouterLink to="/1/features" class="header__mobile-link" @click="mobileOpen = false">Features</RouterLink>
+        <RouterLink to="/about" class="header__mobile-link" @click="mobileOpen = false">About</RouterLink>
+        <RouterLink to="/pricing" class="header__mobile-link" @click="mobileOpen = false">Pricing</RouterLink>
+        <RouterLink to="/features" class="header__mobile-link" @click="mobileOpen = false">Features</RouterLink>
         <div class="header__mobile-divider"></div>
-        <RouterLink to="/1/team" class="header__mobile-link" @click="mobileOpen = false">Team</RouterLink>
-        <RouterLink to="/1/careers" class="header__mobile-link" @click="mobileOpen = false">Careers</RouterLink>
-        <RouterLink to="/1/contact" class="header__mobile-link" @click="mobileOpen = false">Contact</RouterLink>
+        <RouterLink to="/team" class="header__mobile-link" @click="mobileOpen = false">Team</RouterLink>
+        <RouterLink to="/careers" class="header__mobile-link" @click="mobileOpen = false">Careers</RouterLink>
+        <RouterLink to="/contact" class="header__mobile-link" @click="mobileOpen = false">Contact</RouterLink>
         <div class="header__mobile-divider"></div>
         <RouterLink to="/login" class="header__mobile-cta" @click="mobileOpen = false">Log In</RouterLink>
       </div>

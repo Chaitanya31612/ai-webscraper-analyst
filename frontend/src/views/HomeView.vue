@@ -252,15 +252,15 @@ onMounted(() => {
         <div class="footer__links">
           <div class="footer__col">
             <h4>Product</h4>
-            <RouterLink to="/1/features">Features</RouterLink>
-            <RouterLink to="/1/pricing">Pricing</RouterLink>
-            <RouterLink to="/1/about">About</RouterLink>
+            <RouterLink to="/features">Features</RouterLink>
+            <RouterLink to="/pricing">Pricing</RouterLink>
+            <RouterLink to="/about">About</RouterLink>
           </div>
           <div class="footer__col">
             <h4>Company</h4>
-            <RouterLink to="/1/team">Team</RouterLink>
-            <RouterLink to="/1/careers">Careers</RouterLink>
-            <RouterLink to="/1/contact">Contact</RouterLink>
+            <RouterLink to="/team">Team</RouterLink>
+            <RouterLink to="/careers">Careers</RouterLink>
+            <RouterLink to="/contact">Contact</RouterLink>
           </div>
         </div>
       </div>
