@@ -29,6 +29,48 @@ from pydantic import BaseModel, Field, ConfigDict
 
 
 # ====================================================================
+# AUTH SCHEMAS
+# ====================================================================
+
+class UserRegisterRequest(BaseModel):
+    """Registration request — email + password + name."""
+    full_name: str = Field(..., min_length=1, max_length=255)
+    email: str = Field(..., max_length=255)
+    password: str = Field(..., min_length=8, max_length=128)
+
+
+class UserLoginRequest(BaseModel):
+    """Login request — email + password."""
+    email: str
+    password: str
+
+
+class GoogleAuthRequest(BaseModel):
+    """Google OAuth — exchange the authorization code."""
+    code: str
+    redirect_uri: str
+
+
+class UserResponse(BaseModel):
+    """Public user profile returned in API responses."""
+    id: uuid.UUID
+    email: str
+    full_name: str
+    avatar_url: Optional[str] = None
+    auth_provider: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TokenResponse(BaseModel):
+    """JWT token + user info returned on login/register."""
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
+
+# ====================================================================
 # BATCH SCHEMAS
 # ====================================================================
 

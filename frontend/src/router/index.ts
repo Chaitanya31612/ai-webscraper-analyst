@@ -1,16 +1,18 @@
 /**
  * Vue Router Configuration
  *
- * Default routes: /  /login  /register
- * Protected:      /dashboard (and all sub-routes)
+ * Default routes: /  /login  /register  /dashboard
+ * Auth:           /login and /register redirect away if already logged in
+ * Protected:      /dashboard requires auth
+ * OAuth:          /auth/google/callback handles Google redirect
  */
 
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    // --- Primary Experience (Default: views/) ---
     {
       path: '/',
       name: 'home',
@@ -20,18 +22,25 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: () => import('@/views/LoginView.vue'),
+      meta: { guestOnly: true },
     },
     {
       path: '/register',
       name: 'register',
       component: () => import('@/views/RegisterView.vue'),
+      meta: { guestOnly: true },
     },
-    // {
-    //   path: '/dashboard',
-    //   name: 'dashboard',
-    //   component: () => import('@/views/DashboardView.vue'),
-    //   meta: { requiresAuth: false }, // flip to true once auth is wired
-    // },
+    {
+      path: '/dashboard',
+      name: 'dashboard',
+      component: () => import('@/views/DashboardView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/auth/google/callback',
+      name: 'google-callback',
+      component: () => import('@/views/GoogleCallbackView.vue'),
+    },
 
     // --- Legacy Placeholder design (v0) ---
     {
@@ -46,17 +55,25 @@ const router = createRouter({
 })
 
 // ---------------------------------------------------------------------------
-// Navigation Guard — auth check (placeholder, activates with requiresAuth)
+// Navigation Guard — auth check
 // ---------------------------------------------------------------------------
 router.beforeEach((to, _from, next) => {
-  const requiresAuth = to.meta.requiresAuth
-  const token = localStorage.getItem('auth_token')
+  const authStore = useAuthStore()
+  const isAuthenticated = authStore.isAuthenticated
 
-  if (requiresAuth && !token) {
+  // Protected route — redirect to login if not authenticated
+  if (to.meta.requiresAuth && !isAuthenticated) {
     next({ name: 'login', query: { redirect: to.fullPath } })
-  } else {
-    next()
+    return
   }
+
+  // Guest-only route — redirect to dashboard if already logged in
+  if (to.meta.guestOnly && isAuthenticated) {
+    next({ name: 'dashboard' })
+    return
+  }
+
+  next()
 })
 
 export default router

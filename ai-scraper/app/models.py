@@ -43,6 +43,7 @@ from sqlalchemy import (
     Text,            # TEXT column (unlimited length)
     Float,           # FLOAT column
     Integer,         # INTEGER column
+    Boolean,         # BOOLEAN column
     DateTime,        # TIMESTAMP column
     ForeignKey,      # Foreign key constraint
     func,            # SQL functions like NOW()
@@ -60,6 +61,61 @@ from sqlalchemy.dialects.postgresql import (
 )
 
 from app.database import Base
+
+
+# ====================================================================
+# USER MODEL
+# ====================================================================
+
+class User(Base):
+    """
+    Application user — supports email/password and Google OAuth.
+
+    hashed_password is nullable because Google-only users don't set one.
+    google_id links a Google account to a local user.
+    """
+    __tablename__ = "users"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=func.gen_random_uuid(),
+    )
+
+    email: Mapped[str] = mapped_column(
+        String(255), unique=True, index=True, nullable=False,
+    )
+    full_name: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    # Nullable — Google-only users won't have a password
+    hashed_password: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+    # "local" | "google" — how the account was created
+    auth_provider: Mapped[str] = mapped_column(String(50), default="local")
+
+    # Google OAuth subject identifier (unique per Google account)
+    google_id: Mapped[Optional[str]] = mapped_column(
+        String(255), unique=True, nullable=True,
+    )
+
+    avatar_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(),
+    )
+
+    # has_many :batches (a user owns their uploaded batches)
+    batches: Mapped[List["Batch"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan",
+    )
+
+    def __repr__(self):
+        return f"<User {self.id} | {self.email} | {self.auth_provider}>"
 
 
 # ====================================================================
@@ -117,6 +173,14 @@ class Batch(Base):
         server_default=func.gen_random_uuid(),
     )
 
+    # belongs_to :user — who uploaded this batch
+    user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id"),
+        nullable=True,  # Nullable so existing batches without a user still work
+        index=True,
+    )
+
     # Original filename of the uploaded Excel
     filename: Mapped[str] = mapped_column(String(255))
 
@@ -160,6 +224,9 @@ class Batch(Base):
         back_populates="batch",
         cascade="all, delete-orphan",
     )
+
+    # belongs_to :user
+    user: Mapped[Optional["User"]] = relationship(back_populates="batches")
 
     def __repr__(self):
         return f"<Batch {self.id} | {self.filename} | {self.status}>"

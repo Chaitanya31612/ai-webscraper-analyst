@@ -1,19 +1,24 @@
 <script setup lang="ts">
 /**
- * AppHeader — Option 1: "Luminous Executive"
+ * AppHeader — "Luminous Executive"
  *
  * Premium sticky header with:
  * - Logo + Product links (About, Pricing, Features)
  * - Company dropdown (Team, Careers, Contact)
- * - Theme toggle + Log In CTA
+ * - Theme toggle + Auth-aware CTA (Log In / User menu)
  */
 import { ref, onMounted, onUnmounted } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import { useTheme } from '@/composables/useTheme'
+import { useAuthStore } from '@/stores/auth'
 
 const { theme, toggleTheme } = useTheme()
+const authStore = useAuthStore()
+const router = useRouter()
+
 const scrolled = ref(false)
 const companyOpen = ref(false)
+const userMenuOpen = ref(false)
 const mobileOpen = ref(false)
 
 function handleScroll() {
@@ -22,6 +27,13 @@ function handleScroll() {
 
 function closeDropdowns() {
   companyOpen.value = false
+  userMenuOpen.value = false
+}
+
+function handleLogout() {
+  authStore.logout()
+  userMenuOpen.value = false
+  router.push('/')
 }
 
 onMounted(() => {
@@ -120,9 +132,50 @@ onUnmounted(() => {
           </svg>
         </button>
 
-        <RouterLink to="/login" class="header__login" id="header-login">
-          Log In
-        </RouterLink>
+        <!-- Authenticated: User menu -->
+        <template v-if="authStore.isAuthenticated && authStore.user">
+          <div class="header__user-menu" @click.stop>
+            <button class="header__avatar-btn" @click="userMenuOpen = !userMenuOpen" id="user-menu-trigger">
+              <img
+                v-if="authStore.user.avatar_url"
+                :src="authStore.user.avatar_url"
+                :alt="authStore.user.full_name"
+                class="header__avatar-img"
+              />
+              <span v-else class="header__avatar-initials">
+                {{ authStore.user.full_name.charAt(0).toUpperCase() }}
+              </span>
+            </button>
+            <Transition name="dropdown">
+              <div v-if="userMenuOpen" class="header__dropdown-menu header__user-dropdown" id="user-dropdown-menu">
+                <div class="header__user-info">
+                  <div class="header__user-name">{{ authStore.user.full_name }}</div>
+                  <div class="header__user-email">{{ authStore.user.email }}</div>
+                </div>
+                <div class="header__dropdown-divider"></div>
+                <RouterLink to="/dashboard" class="header__dropdown-item" @click="userMenuOpen = false">
+                  <span class="header__dropdown-icon">📊</span>
+                  <div>
+                    <div class="header__dropdown-title">Dashboard</div>
+                  </div>
+                </RouterLink>
+                <button class="header__dropdown-item header__dropdown-item--btn" @click="handleLogout">
+                  <span class="header__dropdown-icon">🚪</span>
+                  <div>
+                    <div class="header__dropdown-title">Log Out</div>
+                  </div>
+                </button>
+              </div>
+            </Transition>
+          </div>
+        </template>
+
+        <!-- Not authenticated: Log In -->
+        <template v-else>
+          <RouterLink to="/login" class="header__login" id="header-login">
+            Log In
+          </RouterLink>
+        </template>
 
         <!-- Mobile menu toggle -->
         <button class="header__mobile-toggle" @click="mobileOpen = !mobileOpen" id="mobile-menu-toggle">
@@ -143,7 +196,13 @@ onUnmounted(() => {
         <RouterLink to="/careers" class="header__mobile-link" @click="mobileOpen = false">Careers</RouterLink>
         <RouterLink to="/contact" class="header__mobile-link" @click="mobileOpen = false">Contact</RouterLink>
         <div class="header__mobile-divider"></div>
-        <RouterLink to="/login" class="header__mobile-cta" @click="mobileOpen = false">Log In</RouterLink>
+        <template v-if="authStore.isAuthenticated">
+          <RouterLink to="/dashboard" class="header__mobile-link" @click="mobileOpen = false">Dashboard</RouterLink>
+          <button class="header__mobile-link header__mobile-link--btn" @click="handleLogout; mobileOpen = false">Log Out</button>
+        </template>
+        <template v-else>
+          <RouterLink to="/login" class="header__mobile-cta" @click="mobileOpen = false">Log In</RouterLink>
+        </template>
       </div>
     </Transition>
   </header>
@@ -162,7 +221,6 @@ onUnmounted(() => {
 }
 
 .header--scrolled {
-  /* background: rgba(253, 253, 253, 0.85); */
   backdrop-filter: blur(16px) saturate(1.4);
   border-bottom: 1px solid var(--color-border);
   box-shadow: var(--shadow-sm);
@@ -281,6 +339,16 @@ onUnmounted(() => {
   background: var(--color-primary-light);
 }
 
+.header__dropdown-item--btn {
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+}
+
 .header__dropdown-icon {
   font-size: 1.15rem;
   line-height: 1.4;
@@ -293,6 +361,72 @@ onUnmounted(() => {
 }
 
 .header__dropdown-desc {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: 0.15rem;
+}
+
+.header__dropdown-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 0.35rem 0;
+}
+
+/* --- User menu --- */
+.header__user-menu {
+  position: relative;
+}
+
+.header__avatar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  background: var(--color-primary);
+  color: #fff;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+  padding: 0;
+}
+
+.header__avatar-btn:hover {
+  border-color: var(--color-primary);
+}
+
+.header__avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.header__avatar-initials {
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.header__user-dropdown {
+  right: 0;
+  left: auto;
+  transform: none;
+  width: 240px;
+}
+
+.header__user-info {
+  padding: 0.75rem;
+}
+
+.header__user-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.header__user-email {
   font-size: 0.75rem;
   color: var(--color-text-muted);
   margin-top: 0.15rem;
@@ -373,6 +507,16 @@ onUnmounted(() => {
   text-decoration: none;
   border-radius: var(--radius-sm);
   transition: all 0.15s ease;
+}
+
+.header__mobile-link--btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.95rem;
+  text-align: left;
+  width: 100%;
 }
 
 .header__mobile-link:hover {

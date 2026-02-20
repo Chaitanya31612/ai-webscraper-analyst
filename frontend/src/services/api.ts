@@ -7,7 +7,7 @@
  */
 
 import axios from 'axios'
-import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
+import type { AxiosInstance, AxiosResponse } from 'axios'
 
 // ---------------------------------------------------------------------------
 // Axios Instance
@@ -22,7 +22,7 @@ const apiClient: AxiosInstance = axios.create({
 })
 
 // ---------------------------------------------------------------------------
-// Request Interceptor — attach auth token when we add login later
+// Request Interceptor — attach auth token
 // ---------------------------------------------------------------------------
 apiClient.interceptors.request.use(
   (config) => {
@@ -36,7 +36,7 @@ apiClient.interceptors.request.use(
 )
 
 // ---------------------------------------------------------------------------
-// Response Interceptor — normalize errors
+// Response Interceptor — normalize errors + handle 401
 // ---------------------------------------------------------------------------
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => response,
@@ -48,10 +48,14 @@ apiClient.interceptors.response.use(
       error.message ||
       'An unexpected error occurred'
 
-    // If 401 and we have auth, clear token (future auth integration)
+    // If 401 and we have auth, clear token and redirect to login
     if (error.response?.status === 401) {
       localStorage.removeItem('auth_token')
-      // Could redirect to /login here later
+      // Only redirect if not already on a public/auth page
+      const path = window.location.pathname
+      if (!path.startsWith('/login') && !path.startsWith('/register') && path !== '/') {
+        window.location.href = `/login?redirect=${encodeURIComponent(path)}`
+      }
     }
 
     return Promise.reject({ message, status: error.response?.status, raw: error })

@@ -30,6 +30,15 @@ class Settings(BaseSettings):
     # Rate Limiting
     AI_REQUESTS_PER_MINUTE: int = 10  # Conservative default (Gemini free = 10 RPM)
 
+    # Auth / JWT
+    JWT_SECRET_KEY: str = "change-me-in-production"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
+
+    # Google OAuth
+    GOOGLE_CLIENT_ID: Optional[str] = None
+    GOOGLE_CLIENT_SECRET: Optional[str] = None
+
     # File Upload
     UPLOAD_DIR: str = "uploads"
     OUTPUT_DIR: str = "output"

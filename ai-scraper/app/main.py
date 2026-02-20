@@ -102,7 +102,13 @@ app.add_middleware(
 # prefix="/api/batches" → all routes in batches.py start with /api/batches
 # tags=["Batches"] → groups them in the auto-generated docs at /api/docs
 # ---------------------------------------------------------------
-from app.routers import batches, companies
+from app.routers import batches, companies, auth
+
+app.include_router(
+    auth.router,
+    prefix="/api/auth",
+    tags=["Auth"],
+)
 
 app.include_router(
     batches.router,
