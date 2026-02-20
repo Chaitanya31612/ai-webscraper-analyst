@@ -1,25 +1,102 @@
 @import 'tailwindcss';
 
 /* ===================================================================
-   DESIGN SYSTEM — AI Scraper
+   DESIGN SYSTEM — AI Scraper: "Executive Clarity"
 
    Font stack:
      Display/Headings: Satoshi (characterful, geometric sans)
      Body:             General Sans (clean, highly legible)
+     Mono:             JetBrains Mono / system monospace
 
    Color palette:
-     Background:  Neutral 950 (#0a0a0a)
-     Surface:     Neutral 900 (#171717)
-     Border:      Neutral 800 (#262626)
-     Muted text:  Neutral 500 (#737373)
-     Accent:      Emerald 400 (#34d399) — trust / intelligence
-     Danger:      Rose 500 (#f43f5e)
-     Warning:     Amber 400 (#fbbf24)
+     Light Mode:
+       Background:  #fdfdfd (crisp paper)
+       Surface:     #f8f9fb (soft gray)
+       Border:      #e5e7eb (subtle)
+       Text:        #111827 (near-black)
+
+     Dark Mode:
+       Background:  #0f172a (deep navy)
+       Surface:     #1e293b (slate-800)
+       Border:      #334155 (slate-700)
+       Text:        #f1f5f9 (slate-100)
+
+     Shared:
+       Primary:     #4f46e5 (indigo) — intelligence & stability
+       Primary-lt:  #6366f1 (indigo-400)
+       Accent:      #34d399 (emerald) — success / accept
+       Danger:      #f43f5e (rose)
+       Warning:     #fbbf24 (amber)
+       Info:        #818cf8 (indigo-300)
    =================================================================== */
 
 @theme {
   --font-display: 'Satoshi', system-ui, sans-serif;
   --font-body: 'General Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* ===================================================================
+   CUSTOM PROPERTIES — design tokens
+   =================================================================== */
+
+:root {
+  /* Light mode (default) */
+  --color-bg: #fdfdfd;
+  --color-bg-alt: #f8f9fb;
+  --color-surface: #ffffff;
+  --color-surface-raised: #f1f3f7;
+  --color-border: #e5e7eb;
+  --color-border-subtle: #f0f0f2;
+  --color-text: #111827;
+  --color-text-secondary: #4b5563;
+  --color-text-muted: #9ca3af;
+
+  --color-primary: #4f46e5;
+  --color-primary-hover: #4338ca;
+  --color-primary-light: #eef2ff;
+  --color-primary-glow: rgba(79, 70, 229, 0.12);
+
+  --color-accent: #34d399;
+  --color-danger: #f43f5e;
+  --color-warning: #fbbf24;
+  --color-info: #818cf8;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.08);
+  --shadow-xl: 0 24px 64px rgba(0, 0, 0, 0.1);
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+
+  color-scheme: light;
+}
+
+.dark {
+  --color-bg: #0f172a;
+  --color-bg-alt: #0c1322;
+  --color-surface: #1e293b;
+  --color-surface-raised: #273549;
+  --color-border: #334155;
+  --color-border-subtle: #1e293b;
+  --color-text: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
+
+  --color-primary: #6366f1;
+  --color-primary-hover: #818cf8;
+  --color-primary-light: rgba(99, 102, 241, 0.12);
+  --color-primary-glow: rgba(99, 102, 241, 0.2);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.35);
+  --shadow-xl: 0 24px 64px rgba(0, 0, 0, 0.4);
+
+  color-scheme: dark;
 }
 
 /* ===================================================================
@@ -33,13 +110,20 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display);
     font-weight: 700;
     letter-spacing: -0.025em;
+    color: var(--color-text);
   }
 
-  /* Custom scrollbar for the dark theme */
+  /* Custom scrollbar */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -50,12 +134,12 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #404040;
+    background: var(--color-text-muted);
     border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #525252;
+    background: var(--color-text-secondary);
   }
 }
 
@@ -64,7 +148,8 @@
    =================================================================== */
 
 @layer utilities {
-  /* Subtle gradient noise overlay for depth */
+
+  /* --- Noise overlay --- */
   .noise-overlay {
     position: relative;
   }
@@ -75,19 +160,146 @@
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
     pointer-events: none;
     z-index: 0;
+    border-radius: inherit;
   }
 
-  /* Glassmorphism card */
+  /* --- Dot grid background --- */
+  .dot-grid {
+    background-image: radial-gradient(circle, var(--color-border) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .dot-grid-dense {
+    background-image: radial-gradient(circle, var(--color-border) 0.75px, transparent 0.75px);
+    background-size: 16px 16px;
+  }
+
+  /* --- Glassmorphism card --- */
   .glass-card {
-    background: rgba(255, 255, 255, 0.03);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 1rem;
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(16px) saturate(1.4);
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+  }
+  .dark .glass-card {
+    background: rgba(30, 41, 59, 0.6);
+    border-color: rgba(51, 65, 85, 0.5);
   }
 
-  /* Glow effect for primary actions */
+  /* --- Glass card (subtle variant) --- */
+  .glass-card-subtle {
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: var(--radius-md);
+  }
+  .dark .glass-card-subtle {
+    background: rgba(30, 41, 59, 0.35);
+    border-color: rgba(51, 65, 85, 0.35);
+  }
+
+  /* --- Glow effects --- */
   .glow-accent {
-    box-shadow: 0 0 20px rgba(52, 211, 153, 0.15),
-                0 0 60px rgba(52, 211, 153, 0.05);
+    box-shadow: 0 0 20px var(--color-primary-glow),
+                0 0 60px rgba(79, 70, 229, 0.05);
+  }
+
+  .glow-primary {
+    box-shadow: 0 0 0 1px var(--color-primary),
+                0 0 24px var(--color-primary-glow);
+  }
+
+  /* --- Radial gradient background --- */
+  .radial-glow {
+    background: radial-gradient(
+      ellipse 60% 50% at 50% 0%,
+      var(--color-primary-glow) 0%,
+      transparent 70%
+    );
+  }
+
+  /* --- Fade-in animations --- */
+  .fade-in-up {
+    animation: fadeInUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .fade-in-up-delay-1 { animation-delay: 0.1s; }
+  .fade-in-up-delay-2 { animation-delay: 0.2s; }
+  .fade-in-up-delay-3 { animation-delay: 0.3s; }
+  .fade-in-up-delay-4 { animation-delay: 0.4s; }
+  .fade-in-up-delay-5 { animation-delay: 0.5s; }
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .fade-in {
+    animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  /* --- Slide-in --- */
+  .slide-in-right {
+    animation: slideInRight 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes slideInRight {
+    from {
+      opacity: 0;
+      transform: translateX(40px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  /* --- Pulse glow --- */
+  .pulse-glow {
+    animation: pulseGlow 3s ease-in-out infinite;
+  }
+
+  @keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 20px var(--color-primary-glow); }
+    50%      { box-shadow: 0 0 40px var(--color-primary-glow), 0 0 80px rgba(79, 70, 229, 0.08); }
+  }
+
+  /* --- Float animation --- */
+  .float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-12px); }
+  }
+
+  /* --- Shimmer for skeleton loading --- */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--color-surface-raised) 25%,
+      var(--color-border-subtle) 50%,
+      var(--color-surface-raised) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  @keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
   }
 }

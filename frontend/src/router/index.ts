@@ -1,7 +1,7 @@
 /**
  * Vue Router Configuration
  *
- * Public routes:  /  /login  /register
+ * Default routes: /  /login  /register
  * Protected:      /dashboard (and all sub-routes)
  */
 
@@ -10,6 +10,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
+    // --- Primary Experience (Default: views/) ---
     {
       path: '/',
       name: 'home',
@@ -25,11 +26,18 @@ const router = createRouter({
       name: 'register',
       component: () => import('@/views/RegisterView.vue'),
     },
+    // {
+    //   path: '/dashboard',
+    //   name: 'dashboard',
+    //   component: () => import('@/views/DashboardView.vue'),
+    //   meta: { requiresAuth: false }, // flip to true once auth is wired
+    // },
+
+    // --- Legacy Placeholder design (v0) ---
     {
-      path: '/dashboard',
-      name: 'dashboard',
-      component: () => import('@/views/DashboardView.vue'),
-      meta: { requiresAuth: false }, // flip to true once auth is wired
+      path: '/v0',
+      name: 'legacy-home',
+      component: () => import('@/views/HomeView.vue'),
     },
   ],
   scrollBehavior(_to, _from, savedPosition) {
