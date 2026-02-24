@@ -7,3 +7,12 @@ groq
 pandas
 openpyxl
 google-genai
+fastapi
+uvicorn
+sqlalchemy
+asyncpg
+alembic
+pydantic-settings
+python-dotenv
+bcrypt
+python-jose[cryptography]
