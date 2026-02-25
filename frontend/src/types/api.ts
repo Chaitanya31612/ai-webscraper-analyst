@@ -70,9 +70,13 @@ export interface CompanyListItem {
   industry: string | null
   bvd_id: string | null
   status: string
+  profile: Record<string, unknown> | null
   decision: string | null
   confidence: number | null
   reasoning: string | null
+  ai_provider: string | null
+  ai_model: string | null
+  pages_crawled: string[] | null
   error: string | null
 }
 
@@ -104,6 +108,49 @@ export interface CompanyDetail {
   error: string | null
   created_at: string
   updated_at: string
+}
+
+// ===================================================================
+// WEB SEARCH TYPES
+// ===================================================================
+
+/** Mirrors the backend company status values */
+export type CompanyScrapeStatus =
+  | 'pending'
+  | 'scraping'
+  | 'scraped'
+  | 'analyzing'
+  | 'complete'
+  | 'error'
+  | 'excluded'
+
+export interface ScrapedPage {
+  url: string
+  page_title: string
+  accessed_at: string
+  // screenshot_path?: string  // Future: enabled when screenshot capture is implemented
+}
+
+/** Rich company data returned by GET /api/batches/{id}/companies/{companyId} */
+export interface CompanySearchDetail {
+  id: number
+  company_name: string
+  website: string
+  country: string | null
+  industry: string | null
+  bvd_id: string | null
+  status: CompanyScrapeStatus
+  ai_provider: string | null
+  ai_model: string | null
+  data_quality: 'High' | 'Medium' | 'Low' | null
+  business_summary: string | null
+  pages_crawled: string[] | null
+  scraped_pages: ScrapedPage[] | null
+  scraped_at: string | null
+  analyzed_at: string | null
+  started_at: string | null
+  run_id: string | null
+  error: string | null
 }
 
 // ===================================================================

@@ -159,9 +159,13 @@ class CompanyListItem(BaseModel):
     industry: Optional[str] = None
     bvd_id: Optional[str] = None
     status: str
+    profile: Optional[dict] = None
     decision: Optional[str] = None
     confidence: Optional[float] = None
     reasoning: Optional[str] = None
+    ai_provider: Optional[str] = None
+    ai_model: Optional[str] = None
+    pages_crawled: Optional[list[str]] = None
     error: Optional[str] = None
 
     # ConfigDict tells Pydantic how to serialize this schema.

@@ -43,6 +43,12 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
+      path: '/benchmark/:batchId',
+      name: 'benchmark-batch',
+      component: () => import('@/views/BenchmarkView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/auth/google/callback',
       name: 'google-callback',
       component: () => import('@/views/GoogleCallbackView.vue'),

@@ -3,24 +3,52 @@
  * BenchmarkView — Multi-step Benchmarking Analysis workspace.
  * Uses Tailwind v4 classes and lucide-vue-next icons.
  */
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import {
   Home, Upload, Filter, Search, CheckCircle, Users, Download, ArrowRight,
 } from 'lucide-vue-next'
+import { useRouter, useRoute } from 'vue-router'
 import AppSidebar from '@/components/AppSidebar.vue'
 import StepNavigator from '@/components/StepNavigator.vue'
+import UploadDataStep from '@/components/steps/UploadDataStep.vue'
+import WebSearchStep from '@/components/steps/WebSearchStep.vue'
 import { useSidebar } from '@/composables/useSidebar'
+import { useBenchmarkStore } from '@/stores/benchmark'
 
 const currentStep = ref(0)
 const { collapsed } = useSidebar()
+const router = useRouter()
+const route = useRoute()
+const benchmarkStore = useBenchmarkStore()
+
+// If we arrive at /benchmark/:batchId, jump straight to Web Search (step 2)
+const batchId = computed(() => (route.params.batchId as string) || benchmarkStore.batchId || null)
+
+onMounted(() => {
+  if (batchId.value) {
+    currentStep.value = 2 // Web Search
+  }
+})
+
+// When route param changes (e.g. after upload redirect), update step
+watch(() => route.params.batchId, (newId) => {
+  if (newId && currentStep.value < 2) {
+    currentStep.value = 2
+  }
+})
+
+/** Called when UploadDataStep completes — redirect to batch URL */
+function onUploaded(newBatchId: string) {
+  router.push(`/benchmark/${newBatchId}`)
+}
 
 const steps = [
   { label: 'Overview' },
   { label: 'Upload Data' },
-  { label: 'Filters' },
+  // { label: 'Filters' },  // TODO: Filters step — commenting out until criteria config is ready
   { label: 'Web Search' },
   { label: 'Accept/Reject' },
-  { label: 'Human Review' },
+  { label: 'Final Review' },
   { label: 'Exports' },
 ]
 
@@ -53,15 +81,16 @@ const stepMeta: StepMeta[] = [
     emptyText: 'Data upload coming soon.',
     emptySub: 'This step will allow you to upload an Excel file with company URLs to scrape.',
   },
-  {
-    title: 'Filters',
-    subtitle: 'Configure the acceptance criteria used to classify companies.',
-    icon: Filter,
-    iconClass: 'bg-[rgba(129,140,248,0.12)] text-[var(--color-info)]',
-    emptyIcon: '⚙️',
-    emptyText: 'Filter configuration coming soon.',
-    emptySub: 'Define industry types, revenue ranges, and other criteria to auto-classify results.',
-  },
+  // TODO: Filters step — commenting out until criteria config is ready
+  // {
+  //   title: 'Filters',
+  //   subtitle: 'Configure the acceptance criteria used to classify companies.',
+  //   icon: Filter,
+  //   iconClass: 'bg-[rgba(129,140,248,0.12)] text-[var(--color-info)]',
+  //   emptyIcon: '⚙️',
+  //   emptyText: 'Filter configuration coming soon.',
+  //   emptySub: 'Define industry types, revenue ranges, and other criteria to auto-classify results.',
+  // },
   {
     title: 'Web Search',
     subtitle: 'AI-powered website scraping status for each company.',
@@ -81,8 +110,8 @@ const stepMeta: StepMeta[] = [
     emptySub: 'AI-generated accept/reject verdicts will appear here after scraping completes.',
   },
   {
-    title: 'Human Review',
-    subtitle: 'Manually review edge cases flagged by the AI pipeline.',
+    title: 'Final Review',
+    subtitle: 'Manually review edge cases flagged by the AI pipeline before finalising.',
     icon: Users,
     iconClass: 'bg-[rgba(251,191,36,0.12)] text-[var(--color-warning)]',
     emptyIcon: '👀',
@@ -139,7 +168,7 @@ const currentMeta = computed(() => stepMeta[currentStep.value] ?? stepMeta[0]!)
       >
         <Transition name="step-fade" mode="out-in">
           <div :key="currentStep" class="flex flex-col gap-6">
-            <!-- Step header -->
+            <!-- Step header (shown for all steps) -->
             <div class="flex items-start gap-4">
               <div
                 :class="[
@@ -159,27 +188,42 @@ const currentMeta = computed(() => stepMeta[currentStep.value] ?? stepMeta[0]!)
               </div>
             </div>
 
-            <!-- Empty state card -->
-            <div class="glass-card flex flex-col items-center justify-center text-center px-8 py-16 gap-2">
-              <div class="text-[2.5rem] mb-2">{{ currentMeta.emptyIcon }}</div>
-              <p class="text-base font-semibold text-[var(--color-text)] m-0">
-                {{ currentMeta.emptyText }}
-              </p>
-              <p class="text-sm text-[var(--color-text-secondary)] max-w-[380px] leading-relaxed mt-1 mb-5">
-                {{ currentMeta.emptySub }}
-              </p>
+            <!-- ── STEP 1: Upload Data — custom component ── -->
+            <UploadDataStep
+              v-if="currentStep === 1"
+              :batch-id="batchId"
+              @uploaded="onUploaded"
+            />
 
-              <!-- CTA only on Overview step -->
-              <button
-                v-if="currentStep === 0"
-                id="overview-start-cta"
-                @click="currentStep = 1"
-                class="inline-flex items-center gap-2 px-5 py-2.5 bg-[var(--color-primary)] text-white border-none rounded-[var(--radius-sm)] text-sm font-semibold cursor-pointer font-sans transition-all duration-200 shadow-[0_2px_8px_rgba(79,70,229,0.25)] hover:bg-[var(--color-primary-hover)] hover:-translate-y-px hover:shadow-[0_4px_16px_rgba(79,70,229,0.35)]"
-              >
-                Upload Data
-                <ArrowRight :size="14" />
-              </button>
-            </div>
+            <!-- ── STEP 2: Web Search Analysis — custom component ── -->
+            <WebSearchStep
+              v-else-if="currentStep === 2"
+              :batch-id="batchId"
+              @next="currentStep++"
+            />
+
+            <!-- ── OTHER STEPS: generic placeholder ── -->
+            <template v-else>
+              <div class="glass-card flex flex-col items-center justify-center text-center px-8 py-16 gap-2">
+                <div class="text-[2.5rem] mb-2">{{ currentMeta.emptyIcon }}</div>
+                <p class="text-base font-semibold text-[var(--color-text)] m-0">
+                  {{ currentMeta.emptyText }}
+                </p>
+                <p class="text-sm text-[var(--color-text-secondary)] max-w-[380px] leading-relaxed mt-1 mb-5">
+                  {{ currentMeta.emptySub }}
+                </p>
+                <!-- CTA only on Overview step -->
+                <button
+                  v-if="currentStep === 0"
+                  id="overview-start-cta"
+                  @click="currentStep = 1"
+                  class="inline-flex items-center gap-2 px-5 py-2.5 bg-[var(--color-primary)] text-white border-none rounded-[var(--radius-sm)] text-sm font-semibold cursor-pointer font-sans transition-all duration-200 shadow-[0_2px_8px_rgba(79,70,229,0.25)] hover:bg-[var(--color-primary-hover)] hover:-translate-y-px hover:shadow-[0_4px_16px_rgba(79,70,229,0.35)]"
+                >
+                  Upload Data
+                  <ArrowRight :size="14" />
+                </button>
+              </div>
+            </template>
           </div>
         </Transition>
       </main>

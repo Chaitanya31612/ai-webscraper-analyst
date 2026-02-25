@@ -14,6 +14,7 @@ import type {
   BatchStatusResponse,
   BatchConfirmRequest,
   BatchListItem,
+  CompanyListItem,
 } from '@/types/api'
 
 export const batchService = {
@@ -48,6 +49,14 @@ export const batchService = {
    */
   async getStatus(batchId: string): Promise<BatchStatusResponse> {
     const { data } = await apiClient.get<BatchStatusResponse>(`/batches/${batchId}/status`)
+    return data
+  },
+
+  /**
+   * Get all companies in a batch with their current status.
+   */
+  async getCompanies(batchId: string): Promise<CompanyListItem[]> {
+    const { data } = await apiClient.get<CompanyListItem[]>(`/companies/batch/${batchId}`)
     return data
   },
 
