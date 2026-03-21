@@ -15,6 +15,8 @@ import type {
   BatchConfirmRequest,
   BatchListItem,
   CompanyListItem,
+  CriteriaUpdate,
+  CriteriaResponse,
 } from '@/types/api'
 
 export const batchService = {
@@ -57,6 +59,22 @@ export const batchService = {
    */
   async getCompanies(batchId: string): Promise<CompanyListItem[]> {
     const { data } = await apiClient.get<CompanyListItem[]>(`/companies/batch/${batchId}`)
+    return data
+  },
+
+  /**
+   * Save accept/reject criteria for a batch.
+   */
+  async saveCriteria(batchId: string, payload: CriteriaUpdate): Promise<CriteriaResponse> {
+    const { data } = await apiClient.put<CriteriaResponse>(`/batches/${batchId}/criteria`, payload)
+    return data
+  },
+
+  /**
+   * Trigger Stage 2 accept/reject decisions.
+   */
+  async triggerDecisions(batchId: string): Promise<{ message: string }> {
+    const { data } = await apiClient.post<{ message: string }>(`/batches/${batchId}/decide`)
     return data
   },
 

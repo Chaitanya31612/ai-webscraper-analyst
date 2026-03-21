@@ -13,6 +13,7 @@ import type {
   CompanyDetail,
   CompanyListItem,
   BatchResultsSummary,
+  FinalDecisionUpdateRequest,
 } from '@/types/api'
 
 export const companyService = {
@@ -21,6 +22,21 @@ export const companyService = {
    */
   async getDetail(companyId: number): Promise<CompanyDetail> {
     const { data } = await apiClient.get<CompanyDetail>(`/companies/${companyId}`)
+    return data
+  },
+
+  /**
+   * Set final human accept/reject decision for one company.
+   */
+  async setFinalDecision(
+    companyId: number,
+    finalDecision: 'accept' | 'reject' | null,
+  ): Promise<CompanyListItem> {
+    const payload: FinalDecisionUpdateRequest = { final_decision: finalDecision }
+    const { data } = await apiClient.patch<CompanyListItem>(
+      `/companies/${companyId}/final-decision`,
+      payload,
+    )
     return data
   },
 

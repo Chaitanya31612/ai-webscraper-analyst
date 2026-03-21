@@ -18,6 +18,7 @@ Reuses:
 
 import io
 import uuid
+from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -37,6 +38,7 @@ from app.schemas import (
     BatchResultsSummary,
     StatusCounts,
     DecisionSummary,
+    FinalDecisionUpdate,
 )
 
 # ---------------------------------------------------------------
@@ -79,6 +81,29 @@ async def get_company(
         raise HTTPException(status_code=404, detail="Company not found")
 
     return company  # Pydantic auto-serializes via from_attributes=True
+
+
+@router.patch(
+    "/{company_id}/final-decision",
+    response_model=CompanyListItem,
+    summary="Set final human decision for a company",
+)
+async def set_final_decision(
+    company_id: int,
+    payload: FinalDecisionUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    """Save final accept/reject decision made in Final Review step."""
+    company = await db.get(Company, company_id)
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    company.final_decision = payload.final_decision
+    company.final_decided_at = datetime.utcnow() if payload.final_decision else None
+
+    await db.commit()
+    await db.refresh(company)
+    return company
 
 
 # ---------------------------------------------------------------

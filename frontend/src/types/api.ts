@@ -35,6 +35,7 @@ export interface BatchStatusResponse {
   status: string
   total_companies: number
   counts: StatusCounts
+  criteria: Record<string, unknown> | null
   created_at: string
 }
 
@@ -43,9 +44,21 @@ export interface StatusCounts {
   scraping: number
   scraped: number
   analyzing: number
+  deciding: number
   complete: number
   error: number
   excluded: number
+}
+
+export interface CriteriaUpdate {
+  accept_products?: string
+  reject_products?: string
+  ideal_functional_profile?: string
+  reject_functions?: string
+}
+
+export interface CriteriaResponse {
+  criteria: Record<string, unknown> | null
 }
 
 /** Used in list_batches response */
@@ -74,6 +87,8 @@ export interface CompanyListItem {
   decision: string | null
   confidence: number | null
   reasoning: string | null
+  final_decision: 'accept' | 'reject' | null
+  final_decided_at: string | null
   ai_provider: string | null
   ai_model: string | null
   pages_crawled: string[] | null
@@ -100,6 +115,8 @@ export interface CompanyDetail {
   decision: string | null
   confidence: number | null
   reasoning: string | null
+  final_decision: 'accept' | 'reject' | null
+  final_decided_at: string | null
   ai_provider: string | null
   ai_model: string | null
   tokens_used: number
@@ -120,6 +137,7 @@ export type CompanyScrapeStatus =
   | 'scraping'
   | 'scraped'
   | 'analyzing'
+  | 'deciding'
   | 'complete'
   | 'error'
   | 'excluded'
@@ -184,4 +202,8 @@ export interface ErrorResponse {
 
 export interface MessageResponse {
   message: string
+}
+
+export interface FinalDecisionUpdateRequest {
+  final_decision: 'accept' | 'reject' | null
 }

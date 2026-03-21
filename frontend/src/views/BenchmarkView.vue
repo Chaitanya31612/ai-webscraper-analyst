@@ -12,6 +12,8 @@ import AppSidebar from '@/components/AppSidebar.vue'
 import StepNavigator from '@/components/StepNavigator.vue'
 import UploadDataStep from '@/components/steps/UploadDataStep.vue'
 import WebSearchStep from '@/components/steps/WebSearchStep.vue'
+import AcceptRejectStep from '@/components/steps/AcceptRejectStep.vue'
+import FinalReviewStep from '@/components/steps/FinalReviewStep.vue'
 import { useSidebar } from '@/composables/useSidebar'
 import { useBenchmarkStore } from '@/stores/benchmark'
 
@@ -198,6 +200,20 @@ const currentMeta = computed(() => stepMeta[currentStep.value] ?? stepMeta[0]!)
             <!-- ── STEP 2: Web Search Analysis — custom component ── -->
             <WebSearchStep
               v-else-if="currentStep === 2"
+              :batch-id="batchId"
+              @next="currentStep++"
+            />
+
+            <!-- ── STEP 3: Accept / Reject — custom component ── -->
+            <AcceptRejectStep
+              v-else-if="currentStep === 3"
+              :batch-id="batchId"
+              @next="currentStep++"
+            />
+
+            <!-- ── STEP 4: Final Review — custom component ── -->
+            <FinalReviewStep
+              v-else-if="currentStep === 4"
               :batch-id="batchId"
               @next="currentStep++"
             />

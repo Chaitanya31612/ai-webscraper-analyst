@@ -1,5 +1,6 @@
 import json
 from typing import Optional
+from collections.abc import Mapping
 from scraper.ai.base import AIAnalyzerInterface, AIProvider
 from scraper.ai.factory import AIAnalyzerFactory
 from .criteria import AcceptRejectCriteria
@@ -31,7 +32,32 @@ Return ONLY valid JSON:
 Use null for unavailable fields. Be factual."""
 
 
-def build_decision_prompt(criteria: AcceptRejectCriteria) -> str:
+def build_decision_prompt(criteria: AcceptRejectCriteria | Mapping[str, object]) -> str:
+    if isinstance(criteria, Mapping):
+        accept_products = str(criteria.get("accept_products", "")).strip() or "Not specified"
+        reject_products = str(criteria.get("reject_products", "")).strip() or "Not specified"
+        ideal_functional_profile = (
+            str(criteria.get("ideal_functional_profile", "")).strip() or "Not specified"
+        )
+        reject_functions = str(criteria.get("reject_functions", "")).strip() or "Not specified"
+
+        return f"""Evaluate this company for partnership eligibility.
+
+ACCEPT if profile strongly matches:
+- Ideal Products/Services: {accept_products}
+- Ideal Functional Profile: {ideal_functional_profile}
+
+REJECT if profile matches:
+- Products/Services to Reject: {reject_products}
+- Functions/Activities to Reject: {reject_functions}
+
+Requirements:
+- Use only factual evidence from the supplied company profile.
+- Reject criteria should take precedence over accept criteria.
+
+Return ONLY valid JSON:
+{{"decision": "accept" | "reject" | "manual_review", "confidence": 0.0-1.0, "reasoning": "2-3 sentence explanation", "matching_accept_criteria": ["list matched accept criteria"], "triggered_reject_criteria": ["list triggered reject criteria"]}}"""
+
     return f"""Evaluate this company for partnership eligibility.
 
 ACCEPT if matches:
@@ -91,7 +117,7 @@ async def extract_profile(
 
 async def make_decision(
         profile: dict,
-        criteria: AcceptRejectCriteria,
+        criteria: AcceptRejectCriteria | Mapping[str, object],
         ai: Optional[AIAnalyzerInterface] = None
 ) -> tuple[dict, int]:
     """

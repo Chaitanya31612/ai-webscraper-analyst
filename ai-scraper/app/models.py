@@ -134,6 +134,7 @@ class CompanyStatus:
     SCRAPING = "scraping"      # Currently being scraped
     SCRAPED = "scraped"        # Scraped, waiting for AI analysis
     ANALYZING = "analyzing"    # AI analysis in progress
+    DECIDING = "deciding"      # Accept/reject decision in progress
     COMPLETE = "complete"      # Fully processed with decision
     ERROR = "error"            # Failed at some stage
     EXCLUDED = "excluded"      # User excluded from processing
@@ -199,6 +200,9 @@ class Batch(Base):
         default="uploaded",
         index=True,  # Index for fast filtering
     )
+
+    # Accept/Reject strategy configured by the user in step 3.
+    criteria: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
 
     # Timestamps — server_default uses PostgreSQL's NOW() function.
     # onupdate=func.now() auto-updates updated_at on every save (like Rails' touch).
@@ -322,6 +326,13 @@ class Company(Base):
 
     # Human-readable reasoning for the decision
     reasoning: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Human final decision set in Final Review step
+    final_decision: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    final_decided_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
 
     # Which AI provider + model was used
     ai_provider: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)

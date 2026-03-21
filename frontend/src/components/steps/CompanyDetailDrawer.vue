@@ -21,6 +21,7 @@ import type { CompanyListItem } from '@/types/api'
 const props = defineProps<{
   company: CompanyListItem | null
   open: boolean
+  showFooterActions?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -44,6 +45,7 @@ function getStatusConfig(status: string): StatusConfig {
     scraping:  { label: 'Searching', color: 'text-[var(--color-primary)]',       bgColor: 'bg-[var(--color-primary-light)]',                 icon: Loader2, pulse: true },
     scraped:   { label: 'Scraped',   color: 'text-[var(--color-info)]',          bgColor: 'bg-[rgba(129,140,248,0.12)]',                    icon: Database },
     analyzing: { label: 'Analysing', color: 'text-[rgba(251,146,60,1)]',         bgColor: 'bg-[rgba(251,146,60,0.1)]',                      icon: Loader2, pulse: true },
+    deciding:  { label: 'Evaluating', color: 'text-[rgba(245,158,11,1)]',        bgColor: 'bg-[rgba(245,158,11,0.14)]',                     icon: Loader2, pulse: true },
     complete:  { label: 'Analysed',  color: 'text-[var(--color-accent)]',        bgColor: 'bg-[rgba(52,211,153,0.12)]',                     icon: CheckCircle2 },
     error:     { label: 'Error',     color: 'text-[var(--color-danger)]',        bgColor: 'bg-[rgba(244,63,94,0.08)]',                      icon: AlertCircle },
     excluded:  { label: 'Excluded',  color: 'text-[var(--color-text-muted)]',    bgColor: 'bg-[var(--color-bg-alt)]',                       icon: X },
@@ -66,6 +68,45 @@ const sourceLabel = computed(() => {
 const isAnalysed = computed(() =>
   props.company?.status === 'complete' || props.company?.status === 'scraped'
 )
+
+const aiDecisionLabel = computed(() => {
+  if (!props.company) return 'Not available'
+  if (props.company.status === 'deciding') return 'Evaluating'
+  if (props.company.decision === 'accept') return 'Accept'
+  if (props.company.decision === 'reject') return 'Reject'
+  if (props.company.decision === 'manual_review') return 'Manual Review'
+  return 'Not available'
+})
+
+const aiDecisionBadge = computed(() => {
+  if (!props.company) return 'text-[var(--color-text-muted)] bg-[var(--color-bg-alt)]'
+  if (props.company.status === 'deciding') return 'text-[rgba(245,158,11,1)] bg-[rgba(245,158,11,0.14)]'
+  if (props.company.decision === 'accept') return 'text-[var(--color-accent)] bg-[rgba(52,211,153,0.12)]'
+  if (props.company.decision === 'reject') return 'text-[var(--color-danger)] bg-[rgba(244,63,94,0.1)]'
+  if (props.company.decision === 'manual_review') return 'text-[var(--color-info)] bg-[rgba(129,140,248,0.12)]'
+  return 'text-[var(--color-text-muted)] bg-[var(--color-bg-alt)]'
+})
+
+const aiConfidence = computed(() => {
+  const raw = props.company?.confidence
+  if (typeof raw !== 'number') return '—'
+  return `${Math.round(raw * 100)}%`
+})
+
+const finalDecisionLabel = computed(() => {
+  if (!props.company?.final_decision) return 'Not set'
+  return props.company.final_decision === 'accept' ? 'Accept' : 'Reject'
+})
+
+const finalDecisionBadge = computed(() => {
+  if (props.company?.final_decision === 'accept') {
+    return 'text-[var(--color-accent)] bg-[rgba(52,211,153,0.12)]'
+  }
+  if (props.company?.final_decision === 'reject') {
+    return 'text-[var(--color-danger)] bg-[rgba(244,63,94,0.1)]'
+  }
+  return 'text-[var(--color-text-muted)] bg-[var(--color-bg-alt)]'
+})
 
 // ── Profile computed data ─────────────────────────────────────────────────────
 interface ProductService {
@@ -404,6 +445,51 @@ function cleanUrl(url: string): string {
           </div>
         </section>
 
+        <!-- AI DECISION SUMMARY ────────────────────────────────────────────── -->
+        <section>
+          <p class="text-[0.68rem] font-bold text-[var(--color-text-muted)] uppercase tracking-widest mb-2.5">
+            Decision Summary
+          </p>
+          <div class="rounded-[var(--radius-md)] border border-[var(--color-border)] overflow-hidden">
+            <div class="grid grid-cols-2 divide-x divide-[var(--color-border)]">
+              <div class="px-4 py-3 bg-[var(--color-bg-alt)]">
+                <p class="text-[0.68rem] text-[var(--color-text-muted)] m-0 font-medium mb-1">AI Decision</p>
+                <span
+                  :class="[
+                    'inline-flex items-center gap-1 text-[0.7rem] font-semibold px-2 py-0.5 rounded-full',
+                    aiDecisionBadge,
+                  ]"
+                >
+                  {{ aiDecisionLabel }}
+                </span>
+              </div>
+              <div class="px-4 py-3 bg-[var(--color-bg-alt)]">
+                <p class="text-[0.68rem] text-[var(--color-text-muted)] m-0 font-medium mb-1">AI Confidence</p>
+                <span class="text-xs font-semibold text-[var(--color-text)]">{{ aiConfidence }}</span>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 divide-x divide-[var(--color-border)] border-t border-[var(--color-border)]">
+              <div class="px-4 py-3 bg-[var(--color-surface)]">
+                <p class="text-[0.68rem] text-[var(--color-text-muted)] m-0 font-medium mb-1">Final Decision</p>
+                <span
+                  :class="[
+                    'inline-flex items-center gap-1 text-[0.7rem] font-semibold px-2 py-0.5 rounded-full',
+                    finalDecisionBadge,
+                  ]"
+                >
+                  {{ finalDecisionLabel }}
+                </span>
+              </div>
+              <div class="px-4 py-3 bg-[var(--color-surface)]">
+                <p class="text-[0.68rem] text-[var(--color-text-muted)] m-0 font-medium mb-1">Finalized At</p>
+                <span class="text-xs text-[var(--color-text-secondary)]">
+                  {{ company.final_decided_at ? new Date(company.final_decided_at).toLocaleString() : '—' }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <!-- SCRAPED PAGES ────────────────────────────────────────────────── -->
         <section>
           <p class="text-[0.68rem] font-bold text-[var(--color-text-muted)] uppercase tracking-widest mb-2.5">
@@ -446,7 +532,10 @@ function cleanUrl(url: string): string {
       </div>
 
       <!-- ── Footer actions ─────────────────────────────────────────────── -->
-      <div class="px-6 py-4 border-t border-[var(--color-border)] flex items-center gap-3">
+      <div
+        v-if="showFooterActions !== false"
+        class="px-6 py-4 border-t border-[var(--color-border)] flex items-center gap-3"
+      >
         <button
           id="drawer-update-url"
           @click="emit('updateUrl')"
