@@ -48,7 +48,7 @@ export const companyService = {
     filters?: { status?: string; decision?: string },
   ): Promise<CompanyListItem[]> {
     const { data } = await apiClient.get<CompanyListItem[]>(
-      `/batches/${batchId}/companies`,
+      `/companies/batch/${batchId}`,
       { params: filters },
     )
     return data
@@ -66,10 +66,10 @@ export const companyService = {
    * Download batch results as Excel file.
    */
   async exportExcel(batchId: string): Promise<void> {
-    const response = await apiClient.get(`/batches/${batchId}/export`, {
+    const response = await apiClient.get(`/companies/batch/${batchId}/export`, {
       responseType: 'blob',
     })
-    // Create a download link
+    // Create a temporary download link and click it
     const url = window.URL.createObjectURL(new Blob([response.data]))
     const link = document.createElement('a')
     link.href = url

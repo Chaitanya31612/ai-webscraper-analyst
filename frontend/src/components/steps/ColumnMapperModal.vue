@@ -30,11 +30,11 @@ const TARGET_FIELDS: TargetField[] = [
 // ── AI mapping aliases ─────────────────────────────────────────────────────────
 // Each key is a target field, value is list of strings that strongly suggest that mapping
 const AI_ALIASES: Record<string, string[]> = {
-  company_name: ['company', 'name', 'company name', 'firm', 'organization', 'latin alphabet', 'business name'],
+  company_name: ['company', 'name', 'company name', 'firm', 'organization', 'business name'],
   website:      ['website', 'url', 'web', 'site', 'link', 'homepage', 'address', 'web address', 'internet'],
   country:      ['country', 'nation', 'location', 'territory', 'region', 'state'],
-  industry:     ['industry', 'sector', 'nace', 'sic', 'trade description', 'business type', 'category', 'classification'],
-  bvd_id:       ['bvd', 'database id', 'id number', 'identifier', 'code', 'reference'],
+  industry:     ['industry', 'sector', 'business type', 'category', 'classification'],
+  bvd_id:       ['bvd', 'database id', 'id number', 'identifier', 'code'],
 }
 
 // ── Props / emits ──────────────────────────────────────────────────────────────
@@ -228,7 +228,7 @@ function confirmImport() {
               >
                 <Loader2 v-if="isAiMapping" :size="11" class="animate-spin" />
                 <Sparkles v-else :size="11" />
-                {{ isAiMapping ? 'Mapping…' : '✨ AI Auto-Map' }}
+                {{ isAiMapping ? 'Mapping…' : 'Auto-Map' }}
               </button>
             </div>
 

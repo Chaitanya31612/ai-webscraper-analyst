@@ -14,6 +14,7 @@ import UploadDataStep from '@/components/steps/UploadDataStep.vue'
 import WebSearchStep from '@/components/steps/WebSearchStep.vue'
 import AcceptRejectStep from '@/components/steps/AcceptRejectStep.vue'
 import FinalReviewStep from '@/components/steps/FinalReviewStep.vue'
+import ExportsStep from '@/components/steps/ExportsStep.vue'
 import { useSidebar } from '@/composables/useSidebar'
 import { useBenchmarkStore } from '@/stores/benchmark'
 
@@ -216,6 +217,12 @@ const currentMeta = computed(() => stepMeta[currentStep.value] ?? stepMeta[0]!)
               v-else-if="currentStep === 4"
               :batch-id="batchId"
               @next="currentStep++"
+            />
+
+            <!-- ── STEP 5: Exports — custom component ── -->
+            <ExportsStep
+              v-else-if="currentStep === 5"
+              :batch-id="batchId"
             />
 
             <!-- ── OTHER STEPS: generic placeholder ── -->

@@ -269,7 +269,9 @@ async def export_batch_results(
     batch_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    """Download batch results as an Excel file."""
+    """Download batch results as a structured Excel file with section headers."""
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
 
     batch = await db.get(Batch, batch_id)
     if not batch:
@@ -282,67 +284,137 @@ async def export_batch_results(
     )
     companies = result.scalars().all()
 
-    # --- Build Excel workbook in memory ---
-
-    # openpyxl.Workbook() creates a new Excel file.
-    # wb.active gets the default sheet.
     workbook = openpyxl.Workbook()
     sheet = workbook.active
-    sheet.title = "Results"
+    sheet.title = "Companies with AI web analysis"
 
-    # Header row
-    headers = [
-        "Company Name", "Website", "Country", "Industry", "BVD ID",
-        "Decision", "Confidence", "Reasoning",
-        "Business Description", "Products Count", "Functional Profile",
-        "Target Market", "Company Size",
-        "AI Provider", "AI Model", "Tokens Used",
-        "Pages Crawled", "Status", "Error",
+    # ── Column layout ──────────────────────────────────────────────────────────
+    #
+    # Section 1: General Info          cols A-E (1-5)
+    # Section 2: Business Description  cols F-J (6-10)
+    # Section 3: AI Results            cols K-N (11-14)
+    #
+    # Col: A              B           C        D         E           | F       G                    H                    I                   J                      | K            L               M            N
+    #      Company Name   BVD ID      Country  Website   Industry    | Source  Business Description  Products & Services  Functional Profile   Corporate Structure    | AI Decision  Final Decision  Confidence   AI Reasoning
+
+    # ── Styles ─────────────────────────────────────────────────────────────────
+    HEADER_FONT  = Font(bold=True, color="FFFFFF", size=10)
+    COL_FONT     = Font(bold=True, color="333333", size=9)
+    DATA_FONT    = Font(size=9)
+    CENTER       = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    LEFT_WRAP    = Alignment(horizontal="left",   vertical="top",    wrap_text=True)
+    LEFT_CENTER  = Alignment(horizontal="left",   vertical="center", wrap_text=False)
+    THIN         = Side(style="thin", color="D0D5DD")
+    BORDER       = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
+
+    FILL_GENERAL    = PatternFill("solid", fgColor="3B6CB0")   # blue
+    FILL_BUSINESS   = PatternFill("solid", fgColor="2E7D5C")   # green
+    FILL_AI         = PatternFill("solid", fgColor="7C3AED")   # purple
+    FILL_COL_HEADER = PatternFill("solid", fgColor="F2F4F7")
+
+    # ── Row 1: Section headers (merged) ────────────────────────────────────────
+    sheet.merge_cells("A1:E1")
+    sheet.merge_cells("F1:J1")
+    sheet.merge_cells("K1:N1")
+
+    for cell_ref, label, fill in [
+        ("A1", "General Info",           FILL_GENERAL),
+        ("F1", "Business Description",  FILL_BUSINESS),
+        ("K1", "AI Results",            FILL_AI),
+    ]:
+        cell = sheet[cell_ref]
+        cell.value = label
+        cell.font = HEADER_FONT
+        cell.fill = fill
+        cell.alignment = CENTER
+        cell.border = BORDER
+
+    sheet.row_dimensions[1].height = 22
+
+    # ── Row 2: Column headers ──────────────────────────────────────────────────
+    col_headers = [
+        # General Info
+        "Company Name", "BVD ID", "Country", "Website", "Industry",
+        # Business Description
+        "Source", "Business Description", "Products & Services", "Functional Profile", "Corporate Structure",
+        # AI Results
+        "AI Decision", "Final Decision", "Confidence %", "AI Reasoning",
     ]
-    sheet.append(headers)
 
-    # Data rows
-    for company in companies:
-        profile = company.profile or {}
-        products = profile.get("products_services", [])
+    for col_idx, header in enumerate(col_headers, start=1):
+        cell = sheet.cell(row=2, column=col_idx, value=header)
+        cell.font = COL_FONT
+        cell.fill = FILL_COL_HEADER
+        cell.alignment = CENTER
+        cell.border = BORDER
 
-        sheet.append([
+    sheet.row_dimensions[2].height = 30
+
+    # ── Column widths ──────────────────────────────────────────────────────────
+    col_widths = [
+        28, 16, 14, 32, 16,         # General Info
+        32, 50, 50, 38, 28,         # Business Description
+        14, 16, 14, 60,             # AI Results
+    ]
+    for idx, width in enumerate(col_widths, start=1):
+        sheet.column_dimensions[get_column_letter(idx)].width = width
+
+    # ── Data rows ──────────────────────────────────────────────────────────────
+    for row_idx, company in enumerate(companies, start=3):
+        profile          = company.profile or {}
+        products_list    = profile.get("products_services", [])
+        products_str     = "; ".join(
+            p.get("name", "") for p in products_list if isinstance(p, dict) and p.get("name")
+        )
+        corporate_struct = profile.get("company_size", "")
+        confidence_pct   = (
+            f"{round(company.confidence * 100)}%" if isinstance(company.confidence, float) else ""
+        )
+
+        row_data = [
+            # General Info
             company.company_name,
-            company.website,
-            company.country,
-            company.industry,
-            company.bvd_id,
-            company.decision,
-            company.confidence,
-            company.reasoning,
+            company.bvd_id or "",
+            company.country or "",
+            company.website or "",
+            company.industry or "",
+            # Business Description
+            company.website or "",                           # Source = website URL
             profile.get("business_description", ""),
-            len(products),
+            products_str,
             profile.get("functional_profile", ""),
-            profile.get("target_market", ""),
-            profile.get("company_size", ""),
-            company.ai_provider,
-            company.ai_model,
-            company.tokens_used,
-            len(company.pages_crawled or []),
-            company.status,
-            company.error,
-        ])
+            corporate_struct,
+            # AI Results
+            (company.decision or "").replace("_", " ").title(),
+            (company.final_decision or "").replace("_", " ").title(),
+            confidence_pct,
+            company.reasoning or "",
+        ]
 
-    # --- Write to bytes buffer (no temp file) ---
-    # io.BytesIO is an in-memory binary stream.
-    # We write the Excel file into it, then send it as response.
+        for col_idx, value in enumerate(row_data, start=1):
+            cell = sheet.cell(row=row_idx, column=col_idx, value=value)
+            cell.font = DATA_FONT
+            cell.border = BORDER
+            # Reasoning and description cols get wrap; rest don't
+            if col_idx in (7, 8, 9, 14):
+                cell.alignment = LEFT_WRAP
+            else:
+                cell.alignment = LEFT_CENTER
+
+        # Row height — data rows
+        sheet.row_dimensions[row_idx].height = 60
+
+    # ── Freeze panes at B3 so headers stay visible on scroll ──────────────────
+    sheet.freeze_panes = "A3"
+
+    # ── Write to buffer ────────────────────────────────────────────────────────
     buffer = io.BytesIO()
     workbook.save(buffer)
-    buffer.seek(0)  # Rewind to start so StreamingResponse reads from beginning
+    buffer.seek(0)
 
-    # --- Generate download filename ---
-    # Take original filename, remove extension, add "_results.xlsx"
-    # e.g., "companies.xlsx" -> "companies_results.xlsx"
     base_name = batch.filename.rsplit(".", 1)[0] if "." in batch.filename else batch.filename
     export_filename = f"{base_name}_results.xlsx"
 
-    # StreamingResponse sends the bytes as a file download.
-    # The Content-Disposition header tells the browser to download (not display).
     return StreamingResponse(
         content=buffer,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
