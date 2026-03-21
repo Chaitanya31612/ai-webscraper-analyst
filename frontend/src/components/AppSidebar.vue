@@ -16,13 +16,21 @@ import {
 } from 'lucide-vue-next'
 import { useTheme } from '@/composables/useTheme'
 import { useAuthStore } from '@/stores/auth'
+import { useBenchmarkStore } from '@/stores/benchmark'
 import { useSidebar } from '@/composables/useSidebar'
 
 const { theme, toggleTheme } = useTheme()
 const authStore = useAuthStore()
+const benchmarkStore = useBenchmarkStore()
 const router = useRouter()
 const route = useRoute()
 const { collapsed, toggle } = useSidebar()
+
+/** Navigate to a fresh /benchmark session — clears any existing batch ID from the URL. */
+function goToNewBenchmark() {
+  benchmarkStore.reset()
+  router.push('/benchmark')
+}
 
 const accountOpen = ref(false)
 // Template ref for the user-wrap element — used for click-outside detection
@@ -109,35 +117,65 @@ const navItems = [
 
     <!-- Nav items -->
     <nav id="sidebar-nav" class="flex flex-col gap-1 flex-1 px-2">
-      <RouterLink
-        v-for="item in navItems"
-        :key="item.to"
-        :to="item.to"
-        :id="`sidebar-nav-${item.label.toLowerCase()}`"
-        :title="collapsed ? item.label : undefined"
-        :class="[
-          'flex items-center gap-2.5 px-2.5 py-2.5 rounded-md no-underline',
-          'font-medium text-sm transition-all duration-150 relative',
-          'hover:text-[var(--color-text)] hover:bg-[var(--color-primary-light)]',
-          isActive(item.to)
-            ? 'text-[var(--color-primary)] bg-[var(--color-primary-light)] font-semibold'
-            : 'text-[var(--color-text-secondary)]',
-          collapsed ? 'justify-center' : '',
-        ]"
-      >
-        <!-- Active left bar -->
-        <span
-          v-if="isActive(item.to)"
-          class="absolute left-0 top-[20%] bottom-[20%] w-[3px] rounded-r-sm bg-[var(--color-primary)]"
-        />
-        <component :is="item.icon" :size="18" class="shrink-0" />
-        <span
+      <template v-for="item in navItems" :key="item.to">
+        <!-- Benchmarks: always resets store + navigates to /benchmark (clears batch ID from URL) -->
+        <button
+          v-if="item.label === 'Benchmarks'"
+          :id="`sidebar-nav-${item.label.toLowerCase()}`"
+          :title="collapsed ? item.label : undefined"
+          @click="goToNewBenchmark"
           :class="[
-            'whitespace-nowrap overflow-hidden transition-all duration-300',
-            collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100',
+            'flex items-center gap-2.5 px-2.5 py-2.5 rounded-md border-none bg-transparent w-full text-left',
+            'font-medium text-sm transition-all duration-150 relative cursor-pointer',
+            'hover:text-[var(--color-text)] hover:bg-[var(--color-primary-light)]',
+            isActive(item.to)
+              ? 'text-[var(--color-primary)] bg-[var(--color-primary-light)] font-semibold'
+              : 'text-[var(--color-text-secondary)]',
+            collapsed ? 'justify-center' : '',
           ]"
-        >{{ item.label }}</span>
-      </RouterLink>
+        >
+          <span
+            v-if="isActive(item.to)"
+            class="absolute left-0 top-[20%] bottom-[20%] w-[3px] rounded-r-sm bg-[var(--color-primary)]"
+          />
+          <component :is="item.icon" :size="18" class="shrink-0" />
+          <span
+            :class="[
+              'whitespace-nowrap overflow-hidden transition-all duration-300',
+              collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100',
+            ]"
+          >{{ item.label }}</span>
+        </button>
+
+        <!-- All other nav items: standard RouterLink -->
+        <RouterLink
+          v-else
+          :to="item.to"
+          :id="`sidebar-nav-${item.label.toLowerCase()}`"
+          :title="collapsed ? item.label : undefined"
+          :class="[
+            'flex items-center gap-2.5 px-2.5 py-2.5 rounded-md no-underline',
+            'font-medium text-sm transition-all duration-150 relative',
+            'hover:text-[var(--color-text)] hover:bg-[var(--color-primary-light)]',
+            isActive(item.to)
+              ? 'text-[var(--color-primary)] bg-[var(--color-primary-light)] font-semibold'
+              : 'text-[var(--color-text-secondary)]',
+            collapsed ? 'justify-center' : '',
+          ]"
+        >
+          <span
+            v-if="isActive(item.to)"
+            class="absolute left-0 top-[20%] bottom-[20%] w-[3px] rounded-r-sm bg-[var(--color-primary)]"
+          />
+          <component :is="item.icon" :size="18" class="shrink-0" />
+          <span
+            :class="[
+              'whitespace-nowrap overflow-hidden transition-all duration-300',
+              collapsed ? 'w-0 opacity-0' : 'w-auto opacity-100',
+            ]"
+          >{{ item.label }}</span>
+        </RouterLink>
+      </template>
     </nav>
 
     <!-- Bottom: theme + user -->

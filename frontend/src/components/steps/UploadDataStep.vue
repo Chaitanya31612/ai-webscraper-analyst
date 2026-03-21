@@ -15,11 +15,12 @@ import { ref, computed, onMounted, watch } from 'vue'
 import * as XLSX from 'xlsx'
 import {
   Upload, Plus, Trash2, ArrowRight, FileSpreadsheet, X, AlertCircle,
-  Loader2,
+  Loader2, FilePlus2,
 } from 'lucide-vue-next'
 import { useBenchmarkStore, makeRow, type CompanyRow } from '@/stores/benchmark'
 import { batchService } from '@/services/batchService'
 import ColumnMapperModal from '@/components/steps/ColumnMapperModal.vue'
+import { useRouter } from 'vue-router'
 
 const props = defineProps<{
   batchId: string | null
@@ -28,6 +29,13 @@ const props = defineProps<{
 const emit = defineEmits<{ (e: 'uploaded', batchId: string): void }>()
 
 const benchmarkStore = useBenchmarkStore()
+const router = useRouter()
+
+/** Reset store + navigate to fresh /benchmark (clears batch ID from URL) */
+function newBatch() {
+  benchmarkStore.reset()
+  router.push('/benchmark')
+}
 
 // ── Refs ─────────────────────────────────────────────────────────────────────
 const fileInputRef = ref<HTMLInputElement | null>(null)
@@ -441,9 +449,17 @@ async function saveAndContinue() {
 
       <!-- ── STICKY ACTION BAR ─────────────────────────────────────────── -->
       <div class="sticky bottom-0 flex items-center gap-3 pt-3 pb-1 bg-[var(--color-bg)] border-t border-[var(--color-border)] mt-3">
-        <!-- Company count -->
-        <span class="text-xs text-[var(--color-text-muted)] mr-auto">
+        <!-- Company count + New Batch button -->
+        <span class="text-xs text-[var(--color-text-muted)] mr-auto flex items-center gap-2">
           {{ benchmarkStore.companies.length }} {{ benchmarkStore.companies.length === 1 ? 'company' : 'companies' }}
+          <button
+            @click="newBatch"
+            title="Start a new batch (clears current data)"
+            class="flex items-center gap-1 text-[var(--color-text-muted)] border-none bg-transparent cursor-pointer hover:text-[var(--color-primary)] transition-colors p-0 text-xs font-medium"
+          >
+            <FilePlus2 :size="13" />
+            New Batch
+          </button>
         </span>
 
         <!-- Error message -->
