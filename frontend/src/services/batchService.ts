@@ -19,6 +19,13 @@ import type {
   CriteriaResponse,
 } from '@/types/api'
 
+export interface GenerateCriteriaResponse {
+  accept_products: string
+  reject_products: string
+  ideal_functional_profile: string
+  reject_functions: string
+}
+
 export const batchService = {
   /**
    * Upload an Excel file for parsing (does NOT start processing).
@@ -85,6 +92,14 @@ export const batchService = {
     const { data } = await apiClient.get<BatchListItem[]>('/batches', {
       params: { skip, limit },
     })
+    return data
+  },
+
+  /**
+   * Use AI to generate accept/reject criteria from a human description.
+   */
+  async generateCriteria(description: string): Promise<GenerateCriteriaResponse> {
+    const { data } = await apiClient.post<GenerateCriteriaResponse>('/ai/generate-criteria', { description })
     return data
   },
 }

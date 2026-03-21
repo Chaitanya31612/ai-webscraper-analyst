@@ -79,4 +79,12 @@ export const companyService = {
     link.remove()
     window.URL.revokeObjectURL(url)
   },
+
+  /**
+   * Re-scrape and re-analyse a single company (resets it to PENDING).
+   */
+  async rescrapeCompany(companyId: number): Promise<{ message: string }> {
+    const { data } = await apiClient.post<{ message: string }>(`/companies/${companyId}/rescrape`)
+    return data
+  },
 }

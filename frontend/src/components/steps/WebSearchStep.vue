@@ -14,9 +14,10 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import {
   Search, RefreshCw, ChevronRight, Globe, ArrowRight,
-  CheckCircle2, Clock, Loader2, AlertCircle, X, Eye,
+  CheckCircle2, Clock, Loader2, AlertCircle, X, Eye, RotateCcw,
 } from 'lucide-vue-next'
 import { batchService } from '@/services/batchService'
+import { companyService } from '@/services/companyService'
 import type { CompanyListItem, BatchStatusResponse } from '@/types/api'
 import CompanyDetailDrawer from './CompanyDetailDrawer.vue'
 
@@ -38,6 +39,7 @@ const drawerOpen      = ref(false)
 const selectedCompany = ref<CompanyListItem | null>(null)
 const companies       = ref<CompanyListItem[]>([])
 const batchStatus     = ref<BatchStatusResponse | null>(null)
+const rescraping      = ref<Set<number>>(new Set())
 
 const hasCompanies = computed(() => companies.value.length > 0)
 
@@ -163,6 +165,33 @@ async function initiateSearch() {
     searchError.value = (e as { message?: string })?.message || 'Failed to start search.'
   } finally {
     isInitiating.value = false
+  }
+}
+
+// ── Re-scrape single company ──────────────────────────────────────────────────
+async function rescrapeCompany(company: CompanyListItem, event: MouseEvent) {
+  event.stopPropagation()
+  if (rescraping.value.has(company.id)) return
+
+  rescraping.value = new Set([...rescraping.value, company.id])
+  try {
+    await companyService.rescrapeCompany(company.id)
+    // Optimistically reset the company status in the local list
+    const idx = companies.value.findIndex(c => c.id === company.id)
+    if (idx !== -1) {
+      companies.value[idx] = {
+        ...companies.value[idx],
+        status: 'pending',
+        profile: null,
+      } as typeof companies.value[number]
+    }
+    // Start auto-refresh so UI tracks its progress
+    searchStarted.value = true
+    autoRefresh.value = true
+  } catch (e: unknown) {
+    searchError.value = (e as { message?: string })?.message || 'Re-scrape failed.'
+  } finally {
+    rescraping.value = new Set([...rescraping.value].filter(id => id !== company.id))
   }
 }
 
@@ -425,15 +454,31 @@ function cleanDomain(url: string): string {
                 <span v-else class="text-xs text-[var(--color-text-muted)]">—</span>
               </td>
 
-              <!-- Eye / expand -->
+              <!-- Eye / expand + Re-scrape -->
               <td class="px-2 py-3 text-center">
-                <button
-                  @click.stop="openDrawer(company)"
-                  class="opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-md border border-[var(--color-border)] bg-transparent cursor-pointer text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-all"
-                  title="View details"
-                >
-                  <Eye :size="13" />
-                </button>
+                <div class="flex items-center gap-1 justify-center">
+                  <button
+                    @click.stop="rescrapeCompany(company, $event)"
+                    :disabled="rescraping.has(company.id)"
+                    :class="[
+                      'opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-md border bg-transparent cursor-pointer transition-all',
+                      rescraping.has(company.id)
+                        ? 'border-[var(--color-border)] text-[var(--color-text-muted)] opacity-100'
+                        : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[rgba(251,146,60,1)] hover:border-[rgba(251,146,60,0.5)] hover:bg-[rgba(251,146,60,0.08)]',
+                    ]"
+                    title="Re-scrape this company"
+                  >
+                    <Loader2 v-if="rescraping.has(company.id)" :size="12" class="animate-spin" />
+                    <RotateCcw v-else :size="12" />
+                  </button>
+                  <button
+                    @click.stop="openDrawer(company)"
+                    class="opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-md border border-[var(--color-border)] bg-transparent cursor-pointer text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-light)] transition-all"
+                    title="View details"
+                  >
+                    <Eye :size="13" />
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>

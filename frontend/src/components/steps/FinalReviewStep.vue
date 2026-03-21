@@ -96,6 +96,7 @@ const priorityCounts = computed(() => {
 
 const finalDecisionCounts = computed(() => {
   return {
+    // Count companies where final_decision is set (either by user or auto-initialized from AI)
     accept: reviewRows.value.filter((c) => c.final_decision === 'accept').length,
     reject: reviewRows.value.filter((c) => c.final_decision === 'reject').length,
   }
@@ -103,13 +104,45 @@ const finalDecisionCounts = computed(() => {
 
 const canProceed = computed(() => reviewRows.value.length > 0)
 
+/**
+ * After loading, auto-initialize final_decision from AI decision for any company
+ * that doesn't already have a final decision saved.
+ * Only applies to clear accept/reject decisions — manual_review stays unset.
+ */
+async function autoInitFinalDecisions(loadedCompanies: CompanyListItem[]) {
+  const toInit = loadedCompanies.filter(
+    (c) => !c.final_decision && (c.decision === 'accept' || c.decision === 'reject')
+  )
+  if (!toInit.length) return
+
+  // Optimistically update local state immediately so counts update without waiting for API
+  const now = new Date().toISOString()
+  for (const company of toInit) {
+    setLocalCompany({
+      ...company,
+      final_decision: company.decision as 'accept' | 'reject',
+      final_decided_at: now,
+    })
+  }
+
+  // Persist to backend in parallel (fire-and-forget — failures don't block the UI)
+  await Promise.allSettled(
+    toInit.map((c) =>
+      companyService.setFinalDecision(c.id, c.decision as 'accept' | 'reject')
+    )
+  )
+}
+
 async function loadData() {
   if (!props.batchId) return
 
   isLoading.value = true
   errorMessage.value = null
   try {
-    companies.value = await batchService.getCompanies(props.batchId)
+    const loaded = await batchService.getCompanies(props.batchId)
+    companies.value = loaded
+    // Auto-default final decision to AI decision for companies without one
+    await autoInitFinalDecisions(loaded)
   } catch (error: unknown) {
     errorMessage.value = (error as { message?: string })?.message || 'Failed to load final review data.'
   } finally {

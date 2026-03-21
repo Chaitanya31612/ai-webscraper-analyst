@@ -17,11 +17,13 @@ Reuses:
 """
 
 import io
+import os
+import sys
 import uuid
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,7 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import openpyxl
 
 from app.database import get_db
-from app.models import Company, Batch
+from app.models import Company, Batch, CompanyStatus
 from app.schemas import (
     CompanyDetail,
     CompanyListItem,
@@ -39,7 +41,12 @@ from app.schemas import (
     StatusCounts,
     DecisionSummary,
     FinalDecisionUpdate,
+    MessageResponse,
 )
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+from app.workers.scrape_worker import run_scrape_worker
+from app.workers.analyze_worker import run_analyze_worker
 
 # ---------------------------------------------------------------
 # Router instance.
@@ -343,3 +350,53 @@ async def export_batch_results(
             "Content-Disposition": f'attachment; filename="{export_filename}"'
         },
     )
+
+
+# ---------------------------------------------------------------
+# POST /api/companies/{company_id}/rescrape
+#
+# Re-runs scrape + analysis for a single company.
+# Useful when results look wrong (e.g. data swap between companies).
+#
+# Steps:
+#   1. Reset company to PENDING (clears old scraped/profile data)
+#   2. Queue scrape_worker + analyze_worker for that company's batch
+# ---------------------------------------------------------------
+@router.post(
+    "/{company_id}/rescrape",
+    response_model=MessageResponse,
+    summary="Re-scrape and re-analyse a single company",
+)
+async def rescrape_company(
+    company_id: int,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    """Reset a company to PENDING and re-run scrape + AI analysis."""
+    company = await db.get(Company, company_id)
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    # Clear previous results and reset status to trigger workers
+    company.status = CompanyStatus.PENDING
+    company.scraped_markdown = None
+    company.pages_crawled = []
+    company.profile = None
+    company.decision = None
+    company.confidence = None
+    company.reasoning = None
+    company.error = None
+    company.scraped_at = None
+    company.analyzed_at = None
+    company.tokens_used = None
+    company.ai_provider = None
+    company.ai_model = None
+
+    await db.commit()
+
+    # Re-run both workers for the batch — they will only pick up PENDING companies
+    batch_id = company.batch_id
+    background_tasks.add_task(run_scrape_worker, batch_id)
+    background_tasks.add_task(run_analyze_worker, batch_id)
+
+    return MessageResponse(message=f"Re-scraping started for: {company.company_name}")

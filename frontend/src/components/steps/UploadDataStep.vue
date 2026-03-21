@@ -19,6 +19,7 @@ import {
 } from 'lucide-vue-next'
 import { useBenchmarkStore, makeRow, type CompanyRow } from '@/stores/benchmark'
 import { batchService } from '@/services/batchService'
+import ColumnMapperModal from '@/components/steps/ColumnMapperModal.vue'
 
 const props = defineProps<{
   batchId: string | null
@@ -36,6 +37,11 @@ const uploadedFilename = ref<string | null>(null)
 const saving = ref(false)
 const saveError = ref<string | null>(null)
 const loadingExisting = ref(false)
+
+// ── Column Mapper Modal state ────────────────────────────────────────────────
+const mapperOpen = ref(false)
+const rawExcelRows = ref<Record<string, unknown>[]>([])
+const mapperFilename = ref('')
 
 const hasRows = computed(() => benchmarkStore.companies.length > 0)
 
@@ -110,7 +116,6 @@ function parseExcel(file: File) {
       if (!sheetName) { saveError.value = 'Excel file has no sheets.'; return }
       const ws = wb.Sheets[sheetName]
       if (!ws) { saveError.value = 'Could not read the sheet.'; return }
-      // Get rows as array-of-objects, raw headers
       const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' })
 
       if (!rawRows.length) {
@@ -118,24 +123,23 @@ function parseExcel(file: File) {
         return
       }
 
-      // Normalise header names
-      const rows: CompanyRow[] = rawRows.map((raw) => {
-        const partial: Partial<Omit<CompanyRow, '_id' | 'errors'>> = {}
-        for (const [header, value] of Object.entries(raw)) {
-          const normalised = header.trim().toLowerCase()
-          const field = HEADER_MAP[normalised]
-          if (field) partial[field] = String(value ?? '')
-        }
-        return makeRow(partial)
-      })
-
-      benchmarkStore.setCompanies(rows)
+      // Open the Column Mapper modal — let user confirm/adjust mappings
+      rawExcelRows.value = rawRows
+      mapperFilename.value = file.name
+      mapperOpen.value = true
       saveError.value = null
     } catch {
       saveError.value = 'Could not read the file. Make sure it is a valid .xlsx or .xls file.'
     }
   }
   reader.readAsArrayBuffer(file)
+}
+
+/** Called when user confirms import from ColumnMapperModal */
+function onMapperImport(rows: CompanyRow[]) {
+  mapperOpen.value = false
+  benchmarkStore.setCompanies(rows)
+  saveError.value = null
 }
 
 // ── File input / drag-drop ─────────────────────────────────────────────────
@@ -255,6 +259,15 @@ async function saveAndContinue() {
       accept=".xlsx,.xls"
       class="hidden"
       @change="onFileChange"
+    />
+
+    <!-- Column Mapper Modal — opened after file parse -->
+    <ColumnMapperModal
+      :open="mapperOpen"
+      :raw-rows="rawExcelRows"
+      :filename="mapperFilename"
+      @close="mapperOpen = false"
+      @import="onMapperImport"
     />
 
     <!-- ── LOADING STATE ──────────────────────────────────────────────── -->

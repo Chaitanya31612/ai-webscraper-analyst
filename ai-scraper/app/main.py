@@ -108,6 +108,7 @@ app.add_middleware(
 # tags=["Batches"] → groups them in the auto-generated docs at /api/docs
 # ---------------------------------------------------------------
 from app.routers import batches, companies, auth
+from app.routers import ai as ai_router
 
 app.include_router(
     auth.router,
@@ -125,6 +126,12 @@ app.include_router(
     companies.router,
     prefix="/api/companies",
     tags=["Companies"],
+)
+
+app.include_router(
+    ai_router.router,
+    prefix="/api/ai",
+    tags=["AI Utilities"],
 )
 
 

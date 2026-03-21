@@ -202,7 +202,18 @@ async def scrape_companies_batch(
     # Process homepage results + discover key pages for phase 2
     key_page_tasks = []  # [(original_website, page_type, key_page_url), ...]
 
-    for url, crawl_result in zip(websites, homepage_results):
+    # IMPORTANT: Use URL-keyed matching, NOT positional zip().
+    # arun_many() with MemoryAdaptiveDispatcher does NOT guarantee result order
+    # matches input URL order — mismatching caused company A to get company B's data.
+    homepage_results_by_url = {r.url: r for r in homepage_results}
+
+    for url in websites:
+        crawl_result = homepage_results_by_url.get(url)
+        if crawl_result is None:
+            results[url]["error"] = "Homepage result not found in batch response"
+            logger.warning(f"No result returned for homepage: {url}")
+            continue
+
         if crawl_result.success:
             truncated = process_content(crawl_result.markdown)
             results[url]["content"] = f"# Homepage\n\n{truncated}"
@@ -232,8 +243,16 @@ async def scrape_companies_batch(
                 dispatcher=dispatcher,
             )
 
-        # Merge key page content back into company results
-        for (original_url, page_type, _page_url), crawl_result in zip(key_page_tasks, key_results):
+        # Merge key page content back into company results.
+        # Use URL-keyed matching to prevent data swaps — same reason as Phase 1.
+        key_results_by_url = {r.url: r for r in key_results}
+
+        for (original_url, page_type, _page_url) in key_page_tasks:
+            crawl_result = key_results_by_url.get(_page_url)
+            if crawl_result is None:
+                logger.warning(f"No result returned for key page: {_page_url}")
+                continue
+
             if crawl_result.success:
                 # Respect per-company token limits
                 current_len = len(results[original_url]["content"])
