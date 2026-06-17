@@ -14,6 +14,14 @@ Welcome to the AI Scraper Extractor! This project is a robust, full-stack applic
 
 Whether you are a sales professional building targeted lead lists, a researcher analyzing market competitors, or a developer exploring AI-agentic workflows, this pipeline handles the heavy lifting of unstructured data processing end-to-end.
 
+## Demo
+
+
+
+https://github.com/user-attachments/assets/370ce3f4-dd10-4fab-b12e-9dbb2ab26fe1
+
+
+
 ## Project Structure
 
 This repository is organized into two main parts: the **Frontend** and the **Backend** (`ai-scraper`).
