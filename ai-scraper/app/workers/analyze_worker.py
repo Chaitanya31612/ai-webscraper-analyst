@@ -3,20 +3,22 @@ Analyze Worker — Background task that processes scraped content with AI.
 
 Runs independently from scrape_worker. Both watch the DB:
   - scrape_worker  → picks status=PENDING  → sets status=SCRAPED
-  - analyze_worker → picks status=SCRAPED  → sets status=COMPLETE
+  - analyze_worker → picks status=SCRAPED  → sets status=COMPLETE (with profile, no decision yet)
 
 Features:
   - Rate Limiting: Respects API limits (e.g. Gemini 10 RPM)
   - AI Factory: Auto-selects best provider (Gemini > Groq > Ollama)
   - Pipeline Reuse: Uses pipeline.processor for logic
 
-Flow:
+Flow (Stage 1 — Profile Extraction only):
   1. Poll DB for 'scraped' companies
   2. RateLimiter.acquire()
-  3. Call pipeline.processor.analyze_company()
-  4. Save result (profile, decision, reasoning) to DB
+  3. Call pipeline.processor.extract_profile()
+  4. Save result (profile) to DB
   5. Update company status to 'complete'
   6. Update batch progress
+
+Note: Stage 2 (accept/reject decision) runs separately in the Accept/Reject step.
 """
 
 import os
@@ -38,8 +40,7 @@ from app.workers import RateLimiter, update_company_status, update_batch_progres
 # ---------------------------------------------------------------
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from scraper.ai.factory import AIAnalyzerFactory, AIProvider
-from pipeline.processor import analyze_company
-from pipeline.criteria import AcceptRejectCriteria
+from pipeline.processor import extract_profile
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,7 @@ logger = logging.getLogger(__name__)
 
 async def run_analyze_worker(batch_id):
     """
-    Analyze all scraped companies in a batch using AI.
+    Extract profiles for all scraped companies in a batch using AI.
 
     Called from the confirm endpoint:
         background_tasks.add_task(run_analyze_worker, batch_id)
@@ -83,9 +84,6 @@ async def run_analyze_worker(batch_id):
         window_seconds=60
     )
 
-    # Use default criteria for now (can be customized per batch later)
-    criteria = AcceptRejectCriteria()
-
     while True:
         # ---------------------------------------------------------------
         # Step 1: Get next batch of 'scraped' companies
@@ -103,14 +101,7 @@ async def run_analyze_worker(batch_id):
             companies = result.scalars().all()
 
         if not companies:
-            # Check if scrape worker is still running?
-            # For now, we just exit if no 'scraped' found.
-            # In a real queue system, we'd wait for a "batch complete" signal.
-            # Since we launch this task ONCE, we assume scraping might be faster
-            # or already done. If scraping is slower, this might exit early.
-
-            # IMPROVEMENT: Check if any are still 'pending' or 'scraping'.
-            # If yes, sleep and retry. If no, exit.
+            # Check if scrape worker is still running
             async with async_session_factory() as db:
                 stmt = select(Company).where(
                     Company.batch_id == batch_id,
@@ -128,7 +119,7 @@ async def run_analyze_worker(batch_id):
                 break
 
         # ---------------------------------------------------------------
-        # Step 2: Analyze each company
+        # Step 2: Extract profile for each company (Stage 1 only)
         # ---------------------------------------------------------------
         for company in companies:
             await analyze_single_company(
@@ -137,14 +128,13 @@ async def run_analyze_worker(batch_id):
                 company.batch_id,
                 analyzer,
                 limiter,
-                criteria
             )
 
     logger.info(f"Analyze worker exiting for batch {batch_id}")
 
 
 # ====================================================================
-# SINGLE COMPANY ANALYSIS
+# SINGLE COMPANY ANALYSIS (Stage 1 — Profile Extraction)
 # ====================================================================
 
 async def analyze_single_company(
@@ -153,18 +143,20 @@ async def analyze_single_company(
     batch_id,
     analyzer,
     limiter: RateLimiter,
-    criteria: AcceptRejectCriteria
 ):
     """
-    Run AI analysis on a single company.
+    Run Stage 1 AI analysis (profile extraction) on a single company.
 
     Steps:
       1. Wait for rate limiter
       2. Mark as 'analyzing'
-      3. Call pipeline.processor.analyze_company()
-      4. Save results to DB
+      3. Call pipeline.processor.extract_profile()
+      4. Save profile to DB, set status to 'complete'
+
+    Note: decision/confidence/reasoning remain null.
+    Stage 2 (accept/reject) runs separately later.
     """
-    logger.info(f"Analyzing company {company_id}...")
+    logger.info(f"Extracting profile for company {company_id}...")
 
     # Wait for rate limit slot
     await limiter.acquire()
@@ -174,44 +166,44 @@ async def analyze_single_company(
 
     try:
         # ---------------------------------------------------------------
-        # Call Pipeline — Heavy lifting happens here
-        # Returns: (profile_dict, decision_dict)
+        # Call Pipeline Stage 1 — Profile extraction only
+        # Returns: (profile_dict, error_string, tokens_used)
         # ---------------------------------------------------------------
-        profile, decision_data = await analyze_company(
+        profile, error, tokens_used = await extract_profile(
             content=markdown,
-            criteria=criteria,
             ai=analyzer
         )
 
-        status = CompanyStatus.COMPLETE
-        error = None
-
-        # Check explicit error from pipeline
-        if decision_data.get("decision") == "error":
+        if error:
             status = CompanyStatus.ERROR
-            error = decision_data.get("error", "AI Analysis Failed")
+            async with async_session_factory() as db:
+                await update_company_status(
+                    db, company_id, status,
+                    error=error,
+                    ai_provider=analyzer.provider.value,
+                    ai_model=analyzer.model_name,
+                )
+                await update_batch_progress(db, batch_id)
+            logger.error(f"Profile extraction failed for company {company_id}: {error}")
+            return
 
-        # Prepare update data
+        # Save profile to DB — no decision yet (Stage 2 runs later)
         update_data = {
-            "profile": profile,  # JSONB field
-            "decision": decision_data.get("decision"),
-            "confidence": decision_data.get("confidence"),
-            "reasoning": decision_data.get("reasoning"),
-            "tokens_used": decision_data.get("tokens_used", 0),
+            "profile": profile,  # JSONB field with full extracted profile
+            "tokens_used": tokens_used,
             "ai_provider": analyzer.provider.value,
             "ai_model": analyzer.model_name,
+            "analyzed_at": datetime.utcnow(),
         }
 
-        # Save to DB
         async with async_session_factory() as db:
             await update_company_status(
-                db, company_id, status,
-                error=error,
+                db, company_id, CompanyStatus.COMPLETE,
                 **update_data
             )
             await update_batch_progress(db, batch_id)
 
-        logger.info(f"Analyzed company {company_id}: {status} ({decision_data.get('decision')})")
+        logger.info(f"Profile extracted for company {company_id}: complete")
 
     except Exception as e:
         logger.error(f"Analysis error for company {company_id}: {e}", exc_info=True)
@@ -221,3 +213,4 @@ async def analyze_single_company(
                 error=f"Worker exception: {str(e)}"
             )
             await update_batch_progress(db, batch_id)
+

@@ -24,7 +24,7 @@ Key concepts:
 
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Literal
 from pydantic import BaseModel, Field, ConfigDict
 
 
@@ -128,6 +128,7 @@ class BatchStatusResponse(BaseModel):
     status: str
     total_companies: int
     counts: "StatusCounts"
+    criteria: Optional[dict] = None
     created_at: datetime
 
 
@@ -137,9 +138,28 @@ class StatusCounts(BaseModel):
     scraping: int = 0
     scraped: int = 0
     analyzing: int = 0
+    deciding: int = 0
     complete: int = 0
     error: int = 0
     excluded: int = 0
+
+
+class CriteriaUpdate(BaseModel):
+    """Accept/reject strategy fields saved per batch."""
+    accept_products: Optional[str] = None
+    reject_products: Optional[str] = None
+    ideal_functional_profile: Optional[str] = None
+    reject_functions: Optional[str] = None
+
+
+class CriteriaResponse(BaseModel):
+    """Stored criteria for a batch."""
+    criteria: Optional[dict] = None
+
+
+class FinalDecisionUpdate(BaseModel):
+    """Human final decision set during Final Review."""
+    final_decision: Optional[Literal["accept", "reject"]] = None
 
 
 # ====================================================================
@@ -159,9 +179,15 @@ class CompanyListItem(BaseModel):
     industry: Optional[str] = None
     bvd_id: Optional[str] = None
     status: str
+    profile: Optional[dict] = None
     decision: Optional[str] = None
     confidence: Optional[float] = None
     reasoning: Optional[str] = None
+    final_decision: Optional[str] = None
+    final_decided_at: Optional[datetime] = None
+    ai_provider: Optional[str] = None
+    ai_model: Optional[str] = None
+    pages_crawled: Optional[list[str]] = None
     error: Optional[str] = None
 
     # ConfigDict tells Pydantic how to serialize this schema.
@@ -197,6 +223,8 @@ class CompanyDetail(BaseModel):
     decision: Optional[str] = None
     confidence: Optional[float] = None
     reasoning: Optional[str] = None
+    final_decision: Optional[str] = None
+    final_decided_at: Optional[datetime] = None
     ai_provider: Optional[str] = None
     ai_model: Optional[str] = None
     tokens_used: int = 0

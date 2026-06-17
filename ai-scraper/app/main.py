@@ -84,11 +84,16 @@ app = FastAPI(
 # ---------------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
-    # In dev, allow localhost. In prod, restrict to your domain.
-    allow_origins=[
-        "http://localhost:5173",   # Vue dev server (Vite default)
-        "http://localhost:3000",   # Alternative dev port
-    ] if settings.DEBUG else [],
+    # In dev, allow all localhost ports. In prod, restrict to your domain.
+    allow_origins=(
+        [
+            "http://localhost:5173",   # Vite default
+            "http://localhost:5174",   # Vite fallback port
+            "http://localhost:3000",   # Alternative dev port
+        ]
+        if settings.ENVIRONMENT == "development"
+        else []
+    ),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -103,6 +108,7 @@ app.add_middleware(
 # tags=["Batches"] → groups them in the auto-generated docs at /api/docs
 # ---------------------------------------------------------------
 from app.routers import batches, companies, auth
+from app.routers import ai as ai_router
 
 app.include_router(
     auth.router,
@@ -120,6 +126,12 @@ app.include_router(
     companies.router,
     prefix="/api/companies",
     tags=["Companies"],
+)
+
+app.include_router(
+    ai_router.router,
+    prefix="/api/ai",
+    tags=["AI Utilities"],
 )
 
 

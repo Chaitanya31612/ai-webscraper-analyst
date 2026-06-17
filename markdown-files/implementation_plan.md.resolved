@@ -1,0 +1,130 @@
+# Accept/Reject Step — Implementation Plan
+
+Build the Accept/Reject step (step 3) matching the reference UI: a company table showing AI decisions, a criteria configuration modal, and a decision trigger workflow.
+
+## Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Frontend
+    participant API
+    participant DecisionWorker
+
+    User->>Frontend: Navigate to Accept/Reject step
+    Frontend->>API: GET /api/companies/batch/{id}
+    API-->>Frontend: Companies with profile (no decision yet)
+    User->>Frontend: Click "Set Accept/Reject Criteria"
+    Frontend->>Frontend: Show criteria modal
+    User->>Frontend: Fill criteria → Save
+    Frontend->>API: PUT /api/batches/{id}/criteria
+    User->>Frontend: Click "Initiate Accept/Reject"
+    Frontend->>API: POST /api/batches/{id}/decide
+    API->>DecisionWorker: Background task
+    DecisionWorker->>API: Updates decision, confidence, reasoning per company
+    Frontend->>API: Polls GET /api/companies/batch/{id}
+    Frontend-->>User: Table updates with Accept/Reject/Evaluating badges
+```
+
+---
+
+## Proposed Changes
+
+### Backend
+
+#### [MODIFY] [models.py](file:///home/chaitanya/Desktop/Development/learning/python-learnings/AIScraperExtractorProject/ai-scraper/app/models.py)
+
+Add `criteria` JSONB column to [Batch](file:///home/chaitanya/Desktop/Development/learning/python-learnings/AIScraperExtractorProject/ai-scraper/app/models.py#151-233) model to persist the accept/reject criteria per batch:
+
+```python
+criteria: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+```
+
+Add new decision-phase status to [CompanyStatus](file:///home/chaitanya/Desktop/Development/learning/python-learnings/AIScraperExtractorProject/ai-scraper/app/models.py#131-140):
+
+```python
+DECIDING = "deciding"   # Accept/reject AI decision in progress
+```
+
+---
+
+#### [MODIFY] [schemas.py](file:///home/chaitanya/Desktop/Development/learning/python-learnings/AIScraperExtractorProject/ai-scraper/app/schemas.py)
+
+Add schemas:
+
+```python
+class CriteriaUpdate(BaseModel):
+    accept_products: Optional[str] = None
+    reject_products: Optional[str] = None
+    ideal_functional_profile: Optional[str] = None
+    reject_functions: Optional[str] = None
+
+class CriteriaResponse(BaseModel):
+    criteria: Optional[dict] = None
+```
+
+---
+
+#### [MODIFY] [batches.py router](file:///home/chaitanya/Desktop/Development/learning/python-learnings/AIScraperExtractorProject/ai-scraper/app/routers/batches.py)
+
+Add two endpoints:
+- `PUT /api/batches/{id}/criteria` — Save criteria JSON to batch
+- `POST /api/batches/{id}/decide` — Trigger decision worker as background task
+
+---
+
+#### [NEW] [decision_worker.py](file:///home/chaitanya/Desktop/Development/learning/python-learnings/AIScraperExtractorProject/ai-scraper/app/workers/decision_worker.py)
+
+Stage 2 worker that:
+1. Loads criteria from batch
+2. Queries companies with `status=complete` AND `profile IS NOT NULL` AND `decision IS NULL`
+3. Calls `pipeline.processor.make_decision(profile, criteria, ai)` per company
+4. Saves [decision](file:///home/chaitanya/Desktop/Development/learning/python-learnings/AIScraperExtractorProject/ai-scraper/pipeline/processor.py#92-116), `confidence`, `reasoning` to DB
+5. Updates batch progress
+
+---
+
+### Frontend
+
+#### [NEW] [AcceptRejectStep.vue](file:///home/chaitanya/Desktop/Development/learning/python-learnings/AIScraperExtractorProject/frontend/src/components/steps/AcceptRejectStep.vue)
+
+Main component with:
+- **Bottom action bar**: "Set Accept/Reject Criteria" button, "Initiate Accept/Reject" button (primary, disabled until criteria saved), "Next Step"
+- **Company table**: columns for #, Company, Status (decision badges), Products/Services, Functional Profile, Independence (company_size), Custom Comment
+- **Progress bar**: color-coded segments for Rejected (red), Accepted (green), Evaluating (yellow)
+- **Auto-refresh**: polls every 3s while decisions are in progress
+
+---
+
+#### [NEW] [CriteriaModal.vue](file:///home/chaitanya/Desktop/Development/learning/python-learnings/AIScraperExtractorProject/frontend/src/components/steps/CriteriaModal.vue)
+
+Modal matching reference screenshot:
+- **Ideal Products/Services to Accept** — textarea (green border)
+- **Products/Services to Reject** — textarea
+- **Ideal Functional Profile** — textarea (green border)
+- **Functions/Activities to Reject** — textarea
+- Cancel + "Save Criteria" buttons
+
+---
+
+#### [MODIFY] [batchService.ts](file:///home/chaitanya/Desktop/Development/learning/python-learnings/AIScraperExtractorProject/frontend/src/services/batchService.ts)
+
+Add API methods:
+- `saveCriteria(batchId, criteria)` → PUT
+- `triggerDecisions(batchId)` → POST
+
+---
+
+#### [MODIFY] [BenchmarkView.vue](file:///home/chaitanya/Desktop/Development/learning/python-learnings/AIScraperExtractorProject/frontend/src/views/BenchmarkView.vue)
+
+Wire the `AcceptRejectStep` component to step 3.
+
+---
+
+## Verification
+
+1. Navigate to Accept/Reject step after Web Search completes
+2. Open criteria modal → fill fields → save → verify persists via API
+3. Click "Initiate Accept/Reject" → verify decision worker runs
+4. Watch table auto-update with Accept/Reject/Evaluating badges
+5. Verify progress bar counts match

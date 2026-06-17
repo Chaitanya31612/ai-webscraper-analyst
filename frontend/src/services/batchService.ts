@@ -14,7 +14,17 @@ import type {
   BatchStatusResponse,
   BatchConfirmRequest,
   BatchListItem,
+  CompanyListItem,
+  CriteriaUpdate,
+  CriteriaResponse,
 } from '@/types/api'
+
+export interface GenerateCriteriaResponse {
+  accept_products: string
+  reject_products: string
+  ideal_functional_profile: string
+  reject_functions: string
+}
 
 export const batchService = {
   /**
@@ -52,12 +62,44 @@ export const batchService = {
   },
 
   /**
+   * Get all companies in a batch with their current status.
+   */
+  async getCompanies(batchId: string): Promise<CompanyListItem[]> {
+    const { data } = await apiClient.get<CompanyListItem[]>(`/companies/batch/${batchId}`)
+    return data
+  },
+
+  /**
+   * Save accept/reject criteria for a batch.
+   */
+  async saveCriteria(batchId: string, payload: CriteriaUpdate): Promise<CriteriaResponse> {
+    const { data } = await apiClient.put<CriteriaResponse>(`/batches/${batchId}/criteria`, payload)
+    return data
+  },
+
+  /**
+   * Trigger Stage 2 accept/reject decisions.
+   */
+  async triggerDecisions(batchId: string): Promise<{ message: string }> {
+    const { data } = await apiClient.post<{ message: string }>(`/batches/${batchId}/decide`)
+    return data
+  },
+
+  /**
    * List all batches (paginated newest-first).
    */
   async list(skip = 0, limit = 20): Promise<BatchListItem[]> {
     const { data } = await apiClient.get<BatchListItem[]>('/batches', {
       params: { skip, limit },
     })
+    return data
+  },
+
+  /**
+   * Use AI to generate accept/reject criteria from a human description.
+   */
+  async generateCriteria(description: string): Promise<GenerateCriteriaResponse> {
+    const { data } = await apiClient.post<GenerateCriteriaResponse>('/ai/generate-criteria', { description })
     return data
   },
 }

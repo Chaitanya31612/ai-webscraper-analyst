@@ -13,6 +13,7 @@ import type {
   CompanyDetail,
   CompanyListItem,
   BatchResultsSummary,
+  FinalDecisionUpdateRequest,
 } from '@/types/api'
 
 export const companyService = {
@@ -25,6 +26,21 @@ export const companyService = {
   },
 
   /**
+   * Set final human accept/reject decision for one company.
+   */
+  async setFinalDecision(
+    companyId: number,
+    finalDecision: 'accept' | 'reject' | null,
+  ): Promise<CompanyListItem> {
+    const payload: FinalDecisionUpdateRequest = { final_decision: finalDecision }
+    const { data } = await apiClient.patch<CompanyListItem>(
+      `/companies/${companyId}/final-decision`,
+      payload,
+    )
+    return data
+  },
+
+  /**
    * List companies in a batch with optional filters.
    */
   async listByBatch(
@@ -32,7 +48,7 @@ export const companyService = {
     filters?: { status?: string; decision?: string },
   ): Promise<CompanyListItem[]> {
     const { data } = await apiClient.get<CompanyListItem[]>(
-      `/batches/${batchId}/companies`,
+      `/companies/batch/${batchId}`,
       { params: filters },
     )
     return data
@@ -50,10 +66,10 @@ export const companyService = {
    * Download batch results as Excel file.
    */
   async exportExcel(batchId: string): Promise<void> {
-    const response = await apiClient.get(`/batches/${batchId}/export`, {
+    const response = await apiClient.get(`/companies/batch/${batchId}/export`, {
       responseType: 'blob',
     })
-    // Create a download link
+    // Create a temporary download link and click it
     const url = window.URL.createObjectURL(new Blob([response.data]))
     const link = document.createElement('a')
     link.href = url
@@ -62,5 +78,13 @@ export const companyService = {
     link.click()
     link.remove()
     window.URL.revokeObjectURL(url)
+  },
+
+  /**
+   * Re-scrape and re-analyse a single company (resets it to PENDING).
+   */
+  async rescrapeCompany(companyId: number): Promise<{ message: string }> {
+    const { data } = await apiClient.post<{ message: string }>(`/companies/${companyId}/rescrape`)
+    return data
   },
 }

@@ -35,6 +35,7 @@ export interface BatchStatusResponse {
   status: string
   total_companies: number
   counts: StatusCounts
+  criteria: Record<string, unknown> | null
   created_at: string
 }
 
@@ -43,9 +44,21 @@ export interface StatusCounts {
   scraping: number
   scraped: number
   analyzing: number
+  deciding: number
   complete: number
   error: number
   excluded: number
+}
+
+export interface CriteriaUpdate {
+  accept_products?: string
+  reject_products?: string
+  ideal_functional_profile?: string
+  reject_functions?: string
+}
+
+export interface CriteriaResponse {
+  criteria: Record<string, unknown> | null
 }
 
 /** Used in list_batches response */
@@ -70,9 +83,15 @@ export interface CompanyListItem {
   industry: string | null
   bvd_id: string | null
   status: string
+  profile: Record<string, unknown> | null
   decision: string | null
   confidence: number | null
   reasoning: string | null
+  final_decision: 'accept' | 'reject' | null
+  final_decided_at: string | null
+  ai_provider: string | null
+  ai_model: string | null
+  pages_crawled: string[] | null
   error: string | null
 }
 
@@ -96,6 +115,8 @@ export interface CompanyDetail {
   decision: string | null
   confidence: number | null
   reasoning: string | null
+  final_decision: 'accept' | 'reject' | null
+  final_decided_at: string | null
   ai_provider: string | null
   ai_model: string | null
   tokens_used: number
@@ -104,6 +125,50 @@ export interface CompanyDetail {
   error: string | null
   created_at: string
   updated_at: string
+}
+
+// ===================================================================
+// WEB SEARCH TYPES
+// ===================================================================
+
+/** Mirrors the backend company status values */
+export type CompanyScrapeStatus =
+  | 'pending'
+  | 'scraping'
+  | 'scraped'
+  | 'analyzing'
+  | 'deciding'
+  | 'complete'
+  | 'error'
+  | 'excluded'
+
+export interface ScrapedPage {
+  url: string
+  page_title: string
+  accessed_at: string
+  // screenshot_path?: string  // Future: enabled when screenshot capture is implemented
+}
+
+/** Rich company data returned by GET /api/batches/{id}/companies/{companyId} */
+export interface CompanySearchDetail {
+  id: number
+  company_name: string
+  website: string
+  country: string | null
+  industry: string | null
+  bvd_id: string | null
+  status: CompanyScrapeStatus
+  ai_provider: string | null
+  ai_model: string | null
+  data_quality: 'High' | 'Medium' | 'Low' | null
+  business_summary: string | null
+  pages_crawled: string[] | null
+  scraped_pages: ScrapedPage[] | null
+  scraped_at: string | null
+  analyzed_at: string | null
+  started_at: string | null
+  run_id: string | null
+  error: string | null
 }
 
 // ===================================================================
@@ -137,4 +202,8 @@ export interface ErrorResponse {
 
 export interface MessageResponse {
   message: string
+}
+
+export interface FinalDecisionUpdateRequest {
+  final_decision: 'accept' | 'reject' | null
 }

@@ -1,5 +1,6 @@
 import json
 from typing import Optional
+from collections.abc import Mapping
 from scraper.ai.base import AIAnalyzerInterface, AIProvider
 from scraper.ai.factory import AIAnalyzerFactory
 from .criteria import AcceptRejectCriteria
@@ -31,7 +32,32 @@ Return ONLY valid JSON:
 Use null for unavailable fields. Be factual."""
 
 
-def build_decision_prompt(criteria: AcceptRejectCriteria) -> str:
+def build_decision_prompt(criteria: AcceptRejectCriteria | Mapping[str, object]) -> str:
+    if isinstance(criteria, Mapping):
+        accept_products = str(criteria.get("accept_products", "")).strip() or "Not specified"
+        reject_products = str(criteria.get("reject_products", "")).strip() or "Not specified"
+        ideal_functional_profile = (
+            str(criteria.get("ideal_functional_profile", "")).strip() or "Not specified"
+        )
+        reject_functions = str(criteria.get("reject_functions", "")).strip() or "Not specified"
+
+        return f"""Evaluate this company for partnership eligibility.
+
+ACCEPT if profile strongly matches:
+- Ideal Products/Services: {accept_products}
+- Ideal Functional Profile: {ideal_functional_profile}
+
+REJECT if profile matches:
+- Products/Services to Reject: {reject_products}
+- Functions/Activities to Reject: {reject_functions}
+
+Requirements:
+- Use only factual evidence from the supplied company profile.
+- Reject criteria should take precedence over accept criteria.
+
+Return ONLY valid JSON:
+{{"decision": "accept" | "reject" | "manual_review", "confidence": 0.0-1.0, "reasoning": "2-3 sentence explanation", "matching_accept_criteria": ["list matched accept criteria"], "triggered_reject_criteria": ["list triggered reject criteria"]}}"""
+
     return f"""Evaluate this company for partnership eligibility.
 
 ACCEPT if matches:
@@ -66,41 +92,74 @@ def parse_json_response(content: str) -> Optional[dict]:
         return json.loads(clean)
 
 
+async def extract_profile(
+        content: str,
+        ai: Optional[AIAnalyzerInterface] = None
+) -> tuple[Optional[dict], Optional[str], int]:
+    """
+    Stage 1: Extract company profile from scraped content.
+    Returns: (profile_dict, error_string, tokens_used)
+    """
+    if ai is None:
+        ai = AIAnalyzerFactory.create(AIProvider.GROQ, model="smart")
+
+    profile_result = ai.analyze(content, EXTRACTION_PROMPT)
+    if not profile_result.success:
+        return None, profile_result.error, 0
+
+    try:
+        profile = parse_json_response(profile_result.content)
+    except (json.JSONDecodeError, Exception) as e:
+        return None, f"Profile parse failed: {e}", 0
+
+    return profile, None, profile_result.tokens_used
+
+
+async def make_decision(
+        profile: dict,
+        criteria: AcceptRejectCriteria | Mapping[str, object],
+        ai: Optional[AIAnalyzerInterface] = None
+) -> tuple[dict, int]:
+    """
+    Stage 2: Make accept/reject decision from an extracted profile.
+    Returns: (decision_dict, tokens_used)
+    """
+    if ai is None:
+        ai = AIAnalyzerFactory.create(AIProvider.GROQ, model="smart")
+
+    decision_prompt = build_decision_prompt(criteria)
+    decision_input = f"COMPANY PROFILE:\n{json.dumps(profile, indent=2)}"
+    decision_result = ai.analyze(decision_input, decision_prompt)
+    if not decision_result.success:
+        return {"decision": "error", "error": decision_result.error}, 0
+
+    try:
+        decision = parse_json_response(decision_result.content)
+    except (json.JSONDecodeError, Exception) as e:
+        return {"decision": "error", "error": f"Decision parse failed: {e}"}, 0
+
+    return decision, decision_result.tokens_used
+
+
 async def analyze_company(
         content: str,
         criteria: AcceptRejectCriteria,
         ai: Optional[AIAnalyzerInterface] = None
 ) -> tuple[Optional[dict], dict]:
     """
-    Two-stage AI analysis:
-    Extract company profile
-    Make accept/reject decision
+    Combined two-stage AI analysis (convenience wrapper for CLI usage).
+    Extract company profile, then make accept/reject decision.
     Returns: (profile_dict, decision_dict)
     """
     if ai is None:
         ai = AIAnalyzerFactory.create(AIProvider.GROQ, model="smart")
 
-    # Stage 1: Extract profile
-    profile_result = ai.analyze(content, EXTRACTION_PROMPT)
-    if not profile_result.success:
-        return None, {"decision": "error", "error": profile_result.error}
+    # Stage 1
+    profile, error, profile_tokens = await extract_profile(content, ai)
+    if error:
+        return None, {"decision": "error", "error": error}
 
-    try:
-        profile = parse_json_response(profile_result.content)
-    except (json.JSONDecodeError, Exception) as e:
-        return None, {"decision": "error", "error": f"Profile parse failed: {e}"}
-
-    # Stage 2: Decision
-    decision_prompt = build_decision_prompt(criteria)
-    decision_input = f"COMPANY PROFILE:\n{json.dumps(profile, indent=2)}"
-    decision_result = ai.analyze(decision_input, decision_prompt)
-    if not decision_result.success:
-        return profile, {"decision": "error", "error": decision_result.error}
-
-    try:
-        decision = parse_json_response(decision_result.content)
-    except (json.JSONDecodeError, Exception) as e:
-        return profile, {"decision": "error", "error": f"Decision parse failed: {e}"}
-
-    decision["tokens_used"] = profile_result.tokens_used + decision_result.tokens_used
+    # Stage 2
+    decision, decision_tokens = await make_decision(profile, criteria, ai)
+    decision["tokens_used"] = profile_tokens + decision_tokens
     return profile, decision

@@ -51,7 +51,7 @@ from fastapi import (
     Query,
     Path,
 )
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # App imports
@@ -60,6 +60,7 @@ from app.database import get_db
 from app.models import Batch, Company, BatchStatus, CompanyStatus
 from app.workers.scrape_worker import run_scrape_worker
 from app.workers.analyze_worker import run_analyze_worker
+from app.workers.decision_worker import run_decision_worker
 
 # Schemas for request/response validation
 from app.schemas import (
@@ -69,6 +70,8 @@ from app.schemas import (
     BatchStatusResponse,
     StatusCounts,
     MessageResponse,
+    CriteriaUpdate,
+    CriteriaResponse,
 )
 
 # ---------------------------------------------------------------
@@ -96,6 +99,19 @@ from pipeline.file_handler import load_companies_from_excel
 # Tags group endpoints in the auto-generated /api/docs.
 # ---------------------------------------------------------------
 router = APIRouter(tags=["Batches"])
+
+
+def _normalize_criteria(payload: CriteriaUpdate) -> dict:
+    """Drop blank strings so we only persist meaningful criteria fields."""
+    cleaned: dict = {}
+    for key, value in payload.model_dump().items():
+        if value is None:
+            continue
+        trimmed = value.strip() if isinstance(value, str) else value
+        if isinstance(trimmed, str) and not trimmed:
+            continue
+        cleaned[key] = trimmed
+    return cleaned
 
 
 # ====================================================================
@@ -347,7 +363,95 @@ async def confirm_batch(
 
 
 # ====================================================================
-# ENDPOINT 3: Get Batch Status
+# ENDPOINT 3: Save Accept/Reject Criteria
+# ====================================================================
+@router.put("/{batch_id}/criteria", response_model=CriteriaResponse)
+async def save_batch_criteria(
+    batch_id: uuid.UUID = Path(..., description="Batch UUID"),
+    payload: CriteriaUpdate = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Save accept/reject criteria JSON for the batch."""
+    batch = await db.get(Batch, batch_id)
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+
+    if payload is None:
+        raise HTTPException(status_code=400, detail="Criteria payload is required")
+
+    criteria = _normalize_criteria(payload)
+    if not criteria:
+        raise HTTPException(status_code=400, detail="At least one criteria field is required")
+
+    batch.criteria = criteria
+    await db.commit()
+    await db.refresh(batch)
+
+    return CriteriaResponse(criteria=batch.criteria)
+
+
+# ====================================================================
+# ENDPOINT 4: Trigger Accept/Reject Decision Worker
+# ====================================================================
+@router.post("/{batch_id}/decide", response_model=MessageResponse)
+async def trigger_decision_phase(
+    batch_id: uuid.UUID = Path(..., description="Batch UUID"),
+    background_tasks: BackgroundTasks = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Start stage-2 accept/reject decision worker for eligible companies."""
+    batch = await db.get(Batch, batch_id)
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+
+    if not batch.criteria:
+        raise HTTPException(
+            status_code=400,
+            detail="Accept/Reject criteria not set. Save criteria before initiating.",
+        )
+
+    # Allow reruns after criteria updates by re-evaluating all profile-ready companies.
+    eligible_stmt = select(func.count(Company.id)).where(
+        Company.batch_id == batch_id,
+        Company.status == CompanyStatus.COMPLETE,
+        Company.profile.is_not(None),
+    )
+    result = await db.execute(eligible_stmt)
+    eligible_count = result.scalar() or 0
+
+    if eligible_count == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="No eligible companies found for decisioning.",
+        )
+
+    # Reset prior decisions so the decision worker reprocesses every eligible company.
+    reset_stmt = (
+        update(Company)
+        .where(
+            Company.batch_id == batch_id,
+            Company.status == CompanyStatus.COMPLETE,
+            Company.profile.is_not(None),
+        )
+        .values(
+            decision=None,
+            confidence=None,
+            reasoning=None,
+        )
+    )
+    await db.execute(reset_stmt)
+    await db.commit()
+
+    if background_tasks:
+        background_tasks.add_task(run_decision_worker, batch_id)
+
+    return MessageResponse(
+        message=f"Accept/Reject decision started for {eligible_count} companies"
+    )
+
+
+# ====================================================================
+# ENDPOINT 5: Get Batch Status
 # ====================================================================
 @router.get("/{batch_id}/status", response_model=BatchStatusResponse)
 async def get_batch_status(
@@ -415,6 +519,7 @@ async def get_batch_status(
         scraping=status_dict.get("scraping", 0),
         scraped=status_dict.get("scraped", 0),
         analyzing=status_dict.get("analyzing", 0),
+        deciding=status_dict.get("deciding", 0),
         complete=status_dict.get("complete", 0),
         error=status_dict.get("error", 0),
         excluded=status_dict.get("excluded", 0),
@@ -426,12 +531,13 @@ async def get_batch_status(
         status=batch.status,
         total_companies=batch.total_companies,
         counts=counts,
+        criteria=batch.criteria,
         created_at=batch.created_at,
     )
 
 
 # ====================================================================
-# ENDPOINT 4: List All Batches
+# ENDPOINT 6: List All Batches
 # ====================================================================
 @router.get("", response_model=list[BatchStatusResponse])
 async def list_batches(
@@ -482,6 +588,7 @@ async def list_batches(
             scraping=status_dict.get("scraping", 0),
             scraped=status_dict.get("scraped", 0),
             analyzing=status_dict.get("analyzing", 0),
+            deciding=status_dict.get("deciding", 0),
             complete=status_dict.get("complete", 0),
             error=status_dict.get("error", 0),
             excluded=status_dict.get("excluded", 0),
@@ -493,6 +600,7 @@ async def list_batches(
             status=batch.status,
             total_companies=batch.total_companies,
             counts=counts,
+            criteria=batch.criteria,
             created_at=batch.created_at,
         ))
 
