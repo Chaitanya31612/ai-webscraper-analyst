@@ -1,48 +1,93 @@
-# frontend
+# AI Scraper Extractor - Frontend (`frontend`)
 
-This template should help get you started developing with Vue 3 in Vite.
+This directory contains the user interface for the AI Scraper Extractor application. It is a modern, single-page application (SPA) built using **Vue 3**, **Vite**, **TailwindCSS**, and **TypeScript**, designed to orchestrate data scraping batches, map Excel columns, and visualize AI extraction results in real time.
 
-## Recommended IDE Setup
+## Tech Stack
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+- **Framework**: [Vue 3](https://vuejs.org/) (Composition API via `<script setup>`)
+- **Build Tool**: [Vite](https://vitejs.dev/) - fast, modern web build tool
+- **Styling**: [TailwindCSS v4](https://tailwindcss.com/) - Utility-first CSS framework
+- **State Management**: [Pinia](https://pinia.vuejs.org/) - Intuitive, type-safe store for Vue
+- **Routing**: [Vue Router 4](https://router.vuejs.org/)
+- **API Client**: [Axios](https://axios-http.com/)
+- **Icons**: [Lucide Vue Next](https://lucide.dev/)
 
-## Recommended Browser Setup
+## Directory Structure
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
-
-## Type Support for `.vue` Imports in TS
-
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
-
-```sh
-npm install
+```text
+frontend/
+├── public/                 # Static assets (favicon, etc.)
+├── src/                    # Source code
+│   ├── assets/             # Global CSS and structural styles (Tailwind imports)
+│   ├── components/         # Reusable Vue components
+│   │   ├── common/         # Generic UI elements (Buttons, Layouts, etc.)
+│   │   ├── steps/          # Flow specific components (Upload, Column Mapper, Processing)
+│   │   └── ...             
+│   ├── composables/        # Shared Vue composables (Vue-specific hooks)
+│   ├── router/             # Vue Router configuration (`index.ts`)
+│   ├── services/           # Axios API integrations (e.g., `batchService.ts`)
+│   ├── stores/             # Pinia state stores (e.g., global state management)
+│   ├── types/              # TypeScript interface & type definitions
+│   ├── views/              # Main page components (e.g., HomeView, BatchResults)
+│   ├── App.vue             # Root Vue component
+│   └── main.ts             # Application entry point, initializing Vue, Pinia, Router
+├── index.html              # Vite entry HTML
+├── package.json            # Node dependencies and scripts
+├── tailwind.config.ts      # Tailwind configuration (if explicitly defined alongside v4)
+├── tsconfig.json           # TypeScript configuration
+└── vite.config.ts          # Vite configuration (plugins, dev server ports, aliases)
 ```
 
-### Compile and Hot-Reload for Development
+## Getting Started
 
-```sh
+### Prerequisites
+
+Ensure you have [Node.js](https://nodejs.org/) installed (version 20+ recommended).
+
+### Installation
+
+1. Navigate to the `frontend` directory:
+   ```bash
+   cd frontend
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+### Running for Development
+
+To start the local development server with Hot-Module-Replacement (HMR):
+
+```bash
 npm run dev
 ```
 
-### Type-Check, Compile and Minify for Production
+The application will be accessible at `http://localhost:5173` (unless configured otherwise). 
+*Note: Make sure your FastAPI backend is running concurrently on port 8000 for full functionality.*
 
-```sh
+### Build for Production
+
+To compile, type-check, and minify the application for deployment:
+
+```bash
 npm run build
 ```
 
-### Lint with [ESLint](https://eslint.org/)
+The optimized build artifacts will be placed in the `dist/` directory, ready to be served by a static file server like Nginx, Apache, or deployed to platforms like Vercel or Netlify.
 
-```sh
-npm run lint
-```
+### Formatting and Linting
+
+- **Run Linter** (ESLint & Oxlint):
+  ```bash
+  npm run lint
+  ```
+- **Format Code** (Prettier):
+  ```bash
+  npm run format
+  ```
+
+## IDE Integration Setup
+
+For the best development experience, we recommend using [VS Code](https://code.visualstudio.com/) alongside the **[Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar)** extension (formerly Volar). Ensure any older extensions like Vetur are disabled.
